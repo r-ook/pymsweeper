@@ -64,7 +64,7 @@ class GUI(tk.Tk):
             self.frm_status,
             textvariable=self.face,
             command=lambda: self.build_field(**MODE.get(self.var_mode.get())),
-            font=('tkDefaultFont', 18),
+            font=('tkDefaultFont', 18, 'bold'),
             bg='yellow',
             anchor=tk.N
         )
@@ -306,7 +306,8 @@ class MapElem:
             self.lbl = tk.Label(
                 master=self.frame,
                 text='✹' if self.val else self.clue if self.clue else '',
-                fg=MapElem.clue_colours.get(self.clue, 'SystemButtonText')
+                fg=MapElem.clue_colours.get(self.clue, 'SystemButtonText'),
+                font=('tkDefaultFont', 10, 'bold')
             )
             self.lbl.bind('<ButtonRelease-1>', self._click)
             self.lbl.bind('<ButtonRelease-3>', self._click)
