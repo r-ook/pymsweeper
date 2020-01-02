@@ -1,4 +1,4 @@
-from random import sample, randrange
+from random import shuffle, randrange
 from collections import namedtuple
 from tkinter import messagebox, font
 from time import time
@@ -20,11 +20,12 @@ STATUS_YEAH = STATUS('✌', 'white', 'limegreen')
 # DEAD = '☠'
 # YEAH = '✌'
 
-MODE_CONFIG = namedtuple('MODE_CONFIG', 'x y rate amount')
+MODE_CONFIG = namedtuple('MODE_CONFIG', 'x y rate amount special')
 MODE = {
-    0: MODE_CONFIG(8, 8, None, 10),
-    1: MODE_CONFIG(16, 16, None, 40),
-    2: MODE_CONFIG(30, 16, None, 99)
+    0: MODE_CONFIG(8, 8, None, 10, False),
+    1: MODE_CONFIG(16, 16, None, 40, False),
+    2: MODE_CONFIG(30, 16, None, 99, False),
+    3: MODE_CONFIG(18, 16, None, 52, True)
     # 0: MODE_CONFIG(DIMENSION(9, 9), None, 10),
     # 1: MODE_CONFIG(DIMENSION(16, 16), None, 40),
     # 2: MODE_CONFIG(DIMENSION(30, 16), None, 99)
@@ -47,9 +48,9 @@ class GUI(tk.Tk):
         self.var_mode = tk.IntVar()
         self.var_mode.set(1)
         self.var_sound = tk.BooleanVar()
-        self.var_sound.set(True)
+        self.var_sound.set(False)
         diff_menu = tk.Menu(self, tearoff=0)
-        for i, mode in enumerate(('Fresh', 'Skilled', 'Pro')):
+        for i, mode in enumerate(('Fresh', 'Skilled', 'Pro', 'Blackjack')):
             diff_menu.add_radiobutton(
                 label=mode,
                 value=i,
@@ -181,7 +182,7 @@ class Field:
         self.IED_current.set(self.IED_count)
         self.map_cleared = 0
         self.map = {
-            (x, y): MapElem(self, (x, y))
+            (x, y): MapNumbedElem(self, (x, y)) if self.mode.special else MapElem(self, (x, y)) 
             # MapIED(self, (x, y), 1) if (x, y) in self.IEDs else MapElem(self, (x, y))
             # MapElem(self, (x, y), 'X' if (x, y) in self.IEDs else None)
             for x in range(self.mode.x)
@@ -202,11 +203,20 @@ class Field:
             coord = (randrange(self.mode.x), randrange(self.mode.y))
             if coord != current_coord:
                 self.IEDs.add(coord)
-        for IED in self.IEDs:
-            self.map.get(IED).is_IED = True
+        if self.mode.special:
+            # testing blackjack mode...
+            cards = list(range(1, 10))*4 + [10]*16
+            shuffle(cards)
+            for IED in self.IEDs:
+                self.map.get(IED).val = cards.pop()
+        else:
+            for IED in self.IEDs:
+                self.map.get(IED).is_IED = True
         # return IEDs
 
     def oops(self):
+        # if self.mode.special:
+        #     return # TODO - remove after testing
         self.master.timer.stop()
         self.master.update_status(STATUS_BOOM)
         self.is_over = True
@@ -228,6 +238,22 @@ class Field:
     def destroy(self):
         self.frame.destroy()
 
+def gradient_colour(main:int, increm=0x080808, n=10, darken=True, as_string=False) -> list:
+    if isinstance(main, str):
+        try:
+            main = int(main, 16)
+        except ValueError:
+            return []
+    if as_string:
+        colours = [f'#{main + (-i if darken else i) * increm:06x}' for i in range(n)]
+    else:
+        colours = [main + (-i if darken else i) * increm for i in range(n)]
+    return colours
+
+def zip_gradient(colours:list, flatten=True, **kwargs):
+    kwargs = {kw: val for kw, val in kwargs.items() if kw in ('increm', 'n', 'darken', 'as_string')}
+    grads = [gradient_colour(c) for c in colours]
+    return list(zip(*grads))
 
 class MapElem:
     clue_colours = {
@@ -249,7 +275,7 @@ class MapElem:
         # self.colour = MapElem.clue_colours.get(val, 'SystemButtonText')
         # self.is_IED = True if val else False
         self.clue = None
-        self.flagged = False
+        self.flagged = 0
         self.revealed = False
         self.box = None
         self.lbl = None
@@ -281,21 +307,37 @@ class MapElem:
         mapper = self.field.map
         return (mapper.get((rx, ry)) for rx in range(cx-1, cx+2) for ry in range(cy-1, cy+2) if mapper.get((rx, ry)))
 
-    def create_actual(self):
-        self.lbl = tk.Label(
+    def get_IED_text(self):
+        return '✹' if self.field.is_over else '✨'   #'☀'
+
+    def label_actual(self):
+        actual = self.get_IED_text() if self.is_IED else self.clue if self.clue else ''
+        lbl = tk.Label(
             master=self.frame,
-            text='✹' if self.val else self.clue if self.clue else '',
+            text=actual, # '✹' if self.val else self.clue if self.clue else '',
             fg=MapElem.clue_colours.get(self.clue, 'SystemButtonText'),
             font=('tkDefaultFont', 10, 'bold')
         )
-        self.lbl.bind('<ButtonRelease-1>', self._click)
-        self.lbl.bind('<ButtonRelease-3>', self._click)
+        return lbl
+
+    def create_actual(self):
+        # if self.is_IED:
+        #     # if self.field.mode.special:
+        #     #     actual = MapElem.val_colours.get(self.val)
+        #     # else:
+        #     #     actual = '✹' if self.field.is_over else '✨'   #'☀'
+        #     actual = self.get_IED_text()
+        # else:
+        #     actual = self.clue if self.clue else ''
+        self.lbl = self.label_actual()
+        self.lbl.bind('<ButtonRelease-1>', self.omni_click)
+        self.lbl.bind('<ButtonRelease-3>', self.omni_click)
         self.lbl.pack()
 
     def reveal(self):
         if self.field.map_cleared == 0:
             self.field.set_IEDs(self.coord)
-        if not self.revealed and not self.flagged:
+        if not self.revealed and self.flagged == 0:
             # if not self.is_IED:
             self.revealed = True
             self.count_adjacent_IEDs()
@@ -306,7 +348,7 @@ class MapElem:
                     elem.reveal()
             if not self.field.is_over:
                 if self.is_IED:
-                    self.lbl.config(fg='red', text='✨')
+                    # self.lbl.config(fg='red') #, text='✨')
                     self.field.oops()
                 else:
                     self.field.check_clear()
@@ -315,7 +357,7 @@ class MapElem:
     def __eq__(self, other):
         return self.val == other
 
-    def _click(self, evt):
+    def omni_click(self, evt, ignore=False):
         if self.field.is_over:
             return
         w, h = evt.widget.winfo_geometry().replace('+', 'x').split('x')[:2]
@@ -324,15 +366,18 @@ class MapElem:
                 self.both_release()
             elif evt.num == 1:
                 self.left_release()
-            elif evt.num == 3:
+            elif evt.num == 3 and not ignore:
                 self.right_release()
 
     def left_release(self):
         self.reveal()
     
-    def right_release(self):
+    def right_release(self, evt=None):
+        # unheld = (evt.state & MOUSE_LEFT > 0) if evt else True
+        # if not self.revealed and unheld:
         if not self.revealed:
-            self.flagged = self.box.flag()
+            # self.flagged = self.box.flag()
+            self.box.flag()
 
     def both_release(self, *evt):
         adjs = list(self.adjacents())
@@ -344,6 +389,43 @@ class MapElem:
         else:
             if self.field.master.var_sound.get():
                 self.field.master.bell()
+
+class MapNumbedElem(MapElem):
+    val_numbers = {
+        1 : '①',
+        2 : '②',
+        3 : '③',
+        4 : '④',
+        5 : '⑤',
+        6 : '⑥',
+        7 : '⑦',
+        8 : '⑧',
+        9 : '⑨',
+        10 : '⑩'
+    }
+    clue_colours = {
+        k: v for k, v in enumerate(
+            colour for c_set in zip_gradient(
+                [
+                    0x5858D0,
+                    0x58D058,
+                    0xD05858,
+                    0x58D0D0,
+                    0xD0D058,
+                    0xD058D0,
+                    0xA06A48,
+                    0x585858
+                ]
+            ) for colour in c_set
+        )
+    }
+    def get_IED_text(self):
+        return MapNumbedElem.val_numbers.get(self.val)
+
+    def build_surprise_box(self):
+        self.box = NumbedSurprise(self)
+        self.build(self.box)
+        return self.box
 
 # class MapIED(MapElem):
 #     def reveal(self):
@@ -362,34 +444,70 @@ class Surprise(tk.Button):
     def __init__(self, parent, *args, **kwargs):
         self.parent = parent
         super().__init__(
-            master=parent.frame,
+            master=self.parent.frame,
             fg='orange red',
-            image=parent.field.master.empty_image,
+            image=self.parent.field.master.empty_image,
             width=20, height=20,
             compound='c',
             relief=tk.GROOVE,
             *args, **kwargs
         )
-        self.flagged = False
-        self.bind('<ButtonRelease-1>', parent._click)
-        self.bind('<ButtonRelease-3>', parent._click)
+        self.flagged = 0
+        self.bind('<ButtonRelease-1>', self.parent.omni_click)
+        self.set_other_bindings()
     
-    def flag(self):
-        count = self.parent.field.IED_current.get()
-        if self.flagged:
-            self.config(text='')    #, bg='SystemButtonFace')
-            self.flagged = False
-            self.parent.field.IED_current.set(count + 1)
+    def set_other_bindings(self):
+        self.bind('<ButtonRelease-3>', self.parent.omni_click)
+        
+        # self.bind('<Button-3>', parent.omni_click)
+    
+    # def num_flag(self, num):
+    #     count = self.parent.field.IED_current.get()
+    #     self.config(text=str(num))
+    #     self.flagged = num
+    #     self.parent.field.IED_current.set(count - 1)
+
+    def flag(self, num=None):
+        if num is None:
+            flag_text = '⚑'
+            num = 1
         else:
-            self.config(text='⚑')
-            self.flagged = True
+            flag_text = MapNumbedElem.val_numbers.get(num)
+
+        count = self.parent.field.IED_current.get()
+        if self.flagged == num:
+            self.config(text='')    #, bg='SystemButtonFace')
+            self.flagged = 0
+            self.parent.field.IED_current.set(count + 1)            
+        else:
+            self.config(text=flag_text)
+            self.flagged = num
             self.parent.field.IED_current.set(count - 1)
-        return self.flagged
+
+        self.parent.flagged = self.flagged
+        # return self.flagged
 
     def check_false_flag(self):
         if not self.parent.is_IED:
             self.config(text='❌', fg='white', bg='maroon')
 
+class NumbedSurprise(Surprise):
+    # def flag(self, num):
+    #     if self.flagged == num:
+    #         self.config(text='')
+    #         self.flagged = 0
+    #     else:
+    #         self.config(text=str(num))
+    #         self.flagged = num
+    
+    def set_other_bindings(self):
+        self.bind('<ButtonRelease-3>', lambda e: self.parent.omni_click(e, ignore=True))
+        self.bind('<Enter>', lambda e: self.focus_set())
+        self.bind('<Leave>', lambda e: self.parent.frame.focus_set())
+        for i, s in enumerate('123qweasdzxc', 1):
+            if i > 10: i = 10
+            self.bind(s, lambda e, x=i: self.flag(x))
+            self.bind(s.upper(), lambda e, x=i: self.flag(x))
         
 if __name__ == '__main__':
     gui = GUI()
