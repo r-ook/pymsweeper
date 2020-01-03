@@ -5,39 +5,30 @@ from time import time
 
 import tkinter as tk
 
-# This feels kinda useless to be honest, probably will remove.
-# DIMENSION = namedtuple('DIMENSION', 'x y')
-
 # Mouse state constants
 MOUSE_LEFT = 2 ** 8
 MOUSE_MID = 2 ** 9
 MOUSE_RIGHT = 2 ** 10
 
+# Status constants
 STATUS = namedtuple('STATUS', 'icon fg bg')
 STATUS_OKAY = STATUS('☺', 'black', 'gold')
 STATUS_BOOM = STATUS('☠', 'white', 'red3')
 STATUS_YEAH = STATUS('✌', 'white', 'limegreen')
-# DEAD = '☠'
-# YEAH = '✌'
 
+# Mode constants
 MODE_CONFIG = namedtuple('MODE_CONFIG', 'x y rate amount special')
 MODE = {
     0: MODE_CONFIG(8, 8, None, 10, False),
     1: MODE_CONFIG(16, 16, None, 40, False),
     2: MODE_CONFIG(30, 16, None, 99, False),
-    3: MODE_CONFIG(18, 16, None, 52, True)
-    # 0: MODE_CONFIG(DIMENSION(9, 9), None, 10),
-    # 1: MODE_CONFIG(DIMENSION(16, 16), None, 40),
-    # 2: MODE_CONFIG(DIMENSION(30, 16), None, 99)
+    3: MODE_CONFIG(10, 10, None, 52 // 2, True),
+    4: MODE_CONFIG(16, 16, None, 52, True),
+    5: MODE_CONFIG(24, 16, None, 52 * 2, True)
 }
 
-# def prod(iterable):
-#     result = 1
-#     for x in iterable:
-#         result *= x
-#     return result
-
 class GUI(tk.Tk):
+
     def __init__(self):
         super().__init__()
         # default_font = font.nametofont('TkDefaultFont')
@@ -46,23 +37,32 @@ class GUI(tk.Tk):
         self.menubar = tk.Menu(self)
         self.empty_image = tk.PhotoImage(width=1, height=1)
         self.var_mode = tk.IntVar()
-        self.var_mode.set(1)
+        self.var_mode.set(0)
         self.var_sound = tk.BooleanVar()
         self.var_sound.set(False)
+
+        def set_menu(modes, start=0):
+            mode_menu = tk.Menu(self, tearoff=0)
+            for i, mode in enumerate(modes, start):
+                mode_menu.add_radiobutton(
+                    label=mode,
+                    value=i,
+                    variable=self.var_mode,
+                    command=lambda x=i: self.build_field(MODE.get(x))
+                )
+            return mode_menu
+
+        norm_modes = set_menu(('Fresh', 'Skilled', 'Pro'), 0)
+        numb_modes = set_menu(('Half Deck', 'Full Deck', 'Double Deck'), 3)
         diff_menu = tk.Menu(self, tearoff=0)
-        for i, mode in enumerate(('Fresh', 'Skilled', 'Pro', 'Blackjack')):
-            diff_menu.add_radiobutton(
-                label=mode,
-                value=i,
-                variable=self.var_mode,
-                command=lambda x=i: self.build_field(MODE.get(x))
-            )
+        diff_menu.add_cascade(label='Normal', menu=norm_modes)
+        diff_menu.add_cascade(label='Hybrid', menu=numb_modes)
         option_menu = tk.Menu(self, tearoff=0)
         option_menu.add_checkbutton(
             label='Sound',
             variable=self.var_sound
         )
-        self.menubar.add_cascade(label='Mode', menu=diff_menu)
+        self.menubar.add_cascade(label='Modes', menu=diff_menu)
         self.menubar.add_cascade(label='Options', menu=option_menu)
         self.config(menu=self.menubar)
         # self.face = tk.StringVar()
@@ -205,7 +205,9 @@ class Field:
                 self.IEDs.add(coord)
         if self.mode.special:
             # testing blackjack mode...
-            cards = list(range(1, 10))*4 + [10]*16
+            # cards = list(range(1, 10))*4 + [10]*16
+            cards = list(range(1, 10)) + [10] * 4
+            cards = cards * (self.mode.amount // 13)
             shuffle(cards)
             for IED in self.IEDs:
                 self.map.get(IED).val = cards.pop()
@@ -232,13 +234,15 @@ class Field:
         if self.map_cleared >= self.map_goal:
             self.master.timer.stop()
             self.master.update_status(STATUS_YEAH)
+            # for elem in self.map.values():
+            #     elem.reveal()
             self.is_over = True
             messagebox.showinfo('Subarashi!', 'You did it!')
    
     def destroy(self):
         self.frame.destroy()
 
-def gradient_colour(main:int, increm=0x080808, n=10, darken=True, as_string=False) -> list:
+def gradient_colour(main:int, increm=0x080808, n=8, darken=True, as_string=False) -> list:
     if isinstance(main, str):
         try:
             main = int(main, 16)
@@ -252,7 +256,7 @@ def gradient_colour(main:int, increm=0x080808, n=10, darken=True, as_string=Fals
 
 def zip_gradient(colours:list, flatten=True, **kwargs):
     kwargs = {kw: val for kw, val in kwargs.items() if kw in ('increm', 'n', 'darken', 'as_string')}
-    grads = [gradient_colour(c) for c in colours]
+    grads = [gradient_colour(c, **kwargs) for c in colours]
     return list(zip(*grads))
 
 class MapElem:
@@ -307,16 +311,29 @@ class MapElem:
         mapper = self.field.map
         return (mapper.get((rx, ry)) for rx in range(cx-1, cx+2) for ry in range(cy-1, cy+2) if mapper.get((rx, ry)))
 
-    def get_IED_text(self):
-        return '✹' if self.field.is_over else '✨'   #'☀'
+    def get_IED_config(self):
+        config = {
+            'text' : '☀' if self.field.is_over else '✨',   #'☀'
+            'fg' : 'SystemButtonText' if self.field.is_over else 'red',
+            'font' : ('tkDefaultFont', 12, 'bold')
+        }
+        return config # '✹' if self.field.is_over else '✨'   #'☀'
 
     def label_actual(self):
-        actual = self.get_IED_text() if self.is_IED else self.clue if self.clue else ''
+        if self.is_IED:
+            actual = self.get_IED_config()
+        else:
+            actual = {
+                'text' : self.clue if self.clue else '',
+                'fg' : self.__class__.clue_colours.get(self.clue, 'SystemButtonText'),
+                'font' : ('tkDefaultFont', 10, 'bold'),
+            }
+            # actual = self.get_IED_text() if self.is_IED else self.clue if self.clue else ''
         lbl = tk.Label(
             master=self.frame,
-            text=actual, # '✹' if self.val else self.clue if self.clue else '',
-            fg=MapElem.clue_colours.get(self.clue, 'SystemButtonText'),
-            font=('tkDefaultFont', 10, 'bold')
+            # text=actual, # '✹' if self.val else self.clue if self.clue else '',
+            # fg=self.__class__.clue_colours.get(self.clue, 'SystemButtonText'),
+            **actual
         )
         return lbl
 
@@ -403,8 +420,15 @@ class MapNumbedElem(MapElem):
         9 : '⑨',
         10 : '⑩'
     }
+    val_colours = MapElem.clue_colours
+    val_colours.update(
+        {
+            9: 'goldenrod',
+            10: 'pink4'
+        }
+    )
     clue_colours = {
-        k: v for k, v in enumerate(
+        i: clue_colour for i, clue_colour in enumerate(
             colour for c_set in zip_gradient(
                 [
                     0x5858D0,
@@ -414,13 +438,28 @@ class MapNumbedElem(MapElem):
                     0xD0D058,
                     0xD058D0,
                     0xA06A48,
+                    0x6A48A0,
+                    0x48A06A,
                     0x585858
-                ]
+                ],
+                as_string=True
             ) for colour in c_set
         )
     }
-    def get_IED_text(self):
-        return MapNumbedElem.val_numbers.get(self.val)
+    def get_IED_config(self):
+        config = {
+            'text' : MapNumbedElem.val_numbers.get(self.val),
+            'fg' : MapNumbedElem.val_colours.get(self.val) if self.field.is_over else 'yellow',
+            'font' : ('tkDefaultFont', 12, 'bold')
+        }
+        if not self.field.is_over:
+            config.update(
+                {
+                    'bg': 'red',
+                    'relief': tk.SUNKEN
+                }
+            )
+        return config # MapNumbedElem.val_numbers.get(self.val)
 
     def build_surprise_box(self):
         self.box = NumbedSurprise(self)
@@ -445,6 +484,7 @@ class Surprise(tk.Button):
         self.parent = parent
         super().__init__(
             master=self.parent.frame,
+            text=' ',
             fg='orange red',
             image=self.parent.field.master.empty_image,
             width=20, height=20,
@@ -469,20 +509,24 @@ class Surprise(tk.Button):
 
     def flag(self, num=None):
         if num is None:
-            flag_text = '⚑'
+            flag_config = {'text': '⚑'}
             num = 1
         else:
-            flag_text = MapNumbedElem.val_numbers.get(num)
+            flag_config = {
+                'text': MapNumbedElem.val_numbers.get(num),
+                'fg': MapNumbedElem.val_colours.get(num),
+            }
 
         count = self.parent.field.IED_current.get()
         if self.flagged == num:
-            self.config(text='')    #, bg='SystemButtonFace')
+            self.config(text=' ')    #, bg='SystemButtonFace')
             self.flagged = 0
             self.parent.field.IED_current.set(count + 1)            
         else:
-            self.config(text=flag_text)
+            self.config(**flag_config)
+            if self.flagged == 0:
+                self.parent.field.IED_current.set(count - 1)
             self.flagged = num
-            self.parent.field.IED_current.set(count - 1)
 
         self.parent.flagged = self.flagged
         # return self.flagged
@@ -492,6 +536,7 @@ class Surprise(tk.Button):
             self.config(text='❌', fg='white', bg='maroon')
 
 class NumbedSurprise(Surprise):
+
     # def flag(self, num):
     #     if self.flagged == num:
     #         self.config(text='')
@@ -504,10 +549,23 @@ class NumbedSurprise(Surprise):
         self.bind('<ButtonRelease-3>', lambda e: self.parent.omni_click(e, ignore=True))
         self.bind('<Enter>', lambda e: self.focus_set())
         self.bind('<Leave>', lambda e: self.parent.frame.focus_set())
-        for i, s in enumerate('123qweasdzxc', 1):
+        # NUM binding
+        for i, s in enumerate('1234567890', 1):
+            if i > 10: i = 10
+            self.bind(s, lambda e, x=i: self.flag(x))
+
+        # WASD binding
+        for i, s in enumerate('qweasdzxc', 4):
             if i > 10: i = 10
             self.bind(s, lambda e, x=i: self.flag(x))
             self.bind(s.upper(), lambda e, x=i: self.flag(x))
+
+    def check_false_flag(self):
+        if self.flagged != self.parent.val:
+            self.config(**self.parent.get_IED_config())
+            self.config(bg='gold')
+        super().check_false_flag()
+
         
 if __name__ == '__main__':
     gui = GUI()
