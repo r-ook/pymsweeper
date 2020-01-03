@@ -1,6 +1,6 @@
 from random import shuffle, randrange
 from collections import namedtuple
-from tkinter import messagebox, font
+from tkinter import messagebox
 from time import time
 
 import tkinter as tk
@@ -17,81 +17,97 @@ STATUS_BOOM = STATUS('☠', 'white', 'red3')
 STATUS_YEAH = STATUS('✌', 'white', 'limegreen')
 
 # Mode constants
-MODE_CONFIG = namedtuple('MODE_CONFIG', 'x y rate amount special')
-MODE = {
-    0: MODE_CONFIG(8, 8, None, 10, False),
-    1: MODE_CONFIG(16, 16, None, 40, False),
-    2: MODE_CONFIG(30, 16, None, 99, False),
-    3: MODE_CONFIG(10, 10, None, 52 // 2, True),
-    4: MODE_CONFIG(16, 16, None, 52, True),
-    5: MODE_CONFIG(24, 16, None, 52 * 2, True)
+MODE_CONFIG = namedtuple('MODE_CONFIG', 'name x y rate amount special')
+MODES = {
+    0: MODE_CONFIG('Fresh', 8, 8, None, 10, False),
+    1: MODE_CONFIG('Skilled', 16, 16, None, 40, False),
+    2: MODE_CONFIG('Pro', 30, 16, None, 99, False),
+    3: MODE_CONFIG('Half Deck', 10, 10, None, 52 // 2, True),
+    4: MODE_CONFIG('Full Deck', 16, 16, None, 52, True),
+    5: MODE_CONFIG('Double Deck', 24, 16, None, 52 * 2, True)
+}
+
+# Circled Number constants
+CIRCLED_NUMBERS = {
+    1 : '①',
+    2 : '②',
+    3 : '③',
+    4 : '④',
+    5 : '⑤',
+    6 : '⑥',
+    7 : '⑦',
+    8 : '⑧',
+    9 : '⑨',
+    10 : '⑩'
 }
 
 class GUI(tk.Tk):
+    ''' Main tkinter class that hosts window configs '''
 
     def __init__(self):
         super().__init__()
-        # default_font = font.nametofont('TkDefaultFont')
-        # default_font.configure(size=8)
         self.title('Pysweeper')
         self.menubar = tk.Menu(self)
-        self.empty_image = tk.PhotoImage(width=1, height=1)
+        self.empty_image = tk.PhotoImage(width=1, height=1)     # generic image to force size on button widgets
         self.var_mode = tk.IntVar()
         self.var_mode.set(0)
         self.var_sound = tk.BooleanVar()
         self.var_sound.set(False)
+        norm_modes = tk.Menu(self, tearoff=0)
+        numb_modes = tk.Menu(self, tearoff=0)
+        for idx, mode in MODES.items():
+            mode_menu = numb_modes if mode.special else norm_modes
+            mode_menu.add_radiobutton(
+                label=mode.name,
+                value=idx,
+                variable=self.var_mode,
+                command=lambda build_mode=mode: self.build_field(build_mode)
+            )
 
-        def set_menu(modes, start=0):
-            mode_menu = tk.Menu(self, tearoff=0)
-            for i, mode in enumerate(modes, start):
-                mode_menu.add_radiobutton(
-                    label=mode,
-                    value=i,
-                    variable=self.var_mode,
-                    command=lambda x=i: self.build_field(MODE.get(x))
-                )
-            return mode_menu
-
-        norm_modes = set_menu(('Fresh', 'Skilled', 'Pro'), 0)
-        numb_modes = set_menu(('Half Deck', 'Full Deck', 'Double Deck'), 3)
         diff_menu = tk.Menu(self, tearoff=0)
         diff_menu.add_cascade(label='Normal', menu=norm_modes)
         diff_menu.add_cascade(label='Hybrid', menu=numb_modes)
         option_menu = tk.Menu(self, tearoff=0)
         option_menu.add_checkbutton(
-            label='Sound',
+            label='Warning Sound',
             variable=self.var_sound
         )
         self.menubar.add_cascade(label='Modes', menu=diff_menu)
         self.menubar.add_cascade(label='Options', menu=option_menu)
         self.config(menu=self.menubar)
-        # self.face = tk.StringVar()
-        # self.face.set(OKAY)
         self.timer = Timer(self)
         self.field = None
+        self.frm_main = tk.Frame(self)
+        self.frm_helper = tk.Frame(self)
+        self.hinter = HintBar(self, self.frm_helper)
         self.build_status_bar()
+        # self.frm_main.pack()
+        # self.frm_helper.pack(fill=tk.BOTH, expand=True)
+        self.frm_main.grid(row=1, column=0, sticky=tk.NSEW)
+        self.frm_helper.grid(row=2, column=0, sticky=tk.NSEW)
 
     def build_status_bar(self):
-        self.frm_status = tk.Frame(self) #, height=48)
+        self.frm_status = tk.Frame(self)
         self.frm_timer = tk.LabelFrame(self.frm_status, text='Time:')
         self.lbl_timer = tk.Label(self.frm_timer, textvariable=self.timer.string)
         self.btn_main = tk.Button(
             self.frm_status,
             image=self.empty_image,
-            command=lambda: self.build_field(MODE.get(self.var_mode.get())),
+            command=lambda: self.build_field(MODES.get(self.var_mode.get())),
             font=('tkDefaultFont', 18, 'bold'),
             width=32,
             height=32,
             compound='c',
-            relief=tk.GROOVE,
-            anchor=tk.CENTER
+            relief=tk.GROOVE
+            # anchor=tk.CENTER
         )
         self.update_status(STATUS_OKAY)
         self.frm_IEDs = tk.LabelFrame(self.frm_status, text='IEDs:')
         self.lbl_IEDs = tk.Label(self.frm_IEDs, text='0')
         
         # self.frm_status.grid_propagate(False)
-        self.frm_status.pack(fill=tk.BOTH, expand=True)
+        self.frm_status.grid(row=0, column=0, sticky=tk.NSEW)
+        # self.frm_status.pack(fill=tk.BOTH, expand=True)
         self.frm_status.columnconfigure(index=0, weight=3)
         self.frm_status.columnconfigure(index=1, weight=1)
         self.frm_status.columnconfigure(index=2, weight=3)
@@ -106,8 +122,15 @@ class GUI(tk.Tk):
             self.field.destroy()
         self.field = Field(self, mode)
         self.field.build()
-        # self.var_timer.set(0)
         self.lbl_IEDs.config(textvariable=self.field.IED_current)
+        if mode.special:
+            self.frm_helper.grid()
+            if not self.hinter.exists:
+                self.hinter.build()
+        else:
+            if self.hinter.exists:
+                self.hinter.destroy()
+            self.frm_helper.grid_remove()
         self.update_status(STATUS_OKAY)
         self.timer.start()
 
@@ -118,18 +141,11 @@ class GUI(tk.Tk):
             bg=status.bg
         )
 
-    # def timing(self):
-    #     if not self.timed is None:
-    #         self.after_cancel(self.timed)
-    #     var_timer = self.var_timer.get()
-    #     self.var_timer.set(var_timer + 1)
-    #     self.timed = self.after(ms=1000, func=self.timing)
-
-
     def run(self):
         self.mainloop()        
 
 class Timer:
+    ''' Timer object to manage... the timer... '''
     def __init__(self, master):
         self.master = master
         self.string = tk.StringVar()
@@ -148,19 +164,10 @@ class Timer:
             self._job = self.master.after(ms=1000, func=self._update)
 
     def to_string(self):
-        # if val:
-        #     current = val
-        # else:
         current = time() - self.start_time
         h, m, s = int(current // 360), int(current % 360 // 60), int(current % 60)
         self.string.set(f'{h:02}:{m:02}:{s:02}')
 
-    # def timetuple(self, precision=False):
-    #     if precision:
-    #         pass
-    #     else:
-    #         return int(current // 360), int(current % 360 // 60), int(current % 60)
-    
     def stop(self):
         self.end_time = time() - self.start_time
         self.to_string()
@@ -169,10 +176,10 @@ class Timer:
 
 
 class Field:
-    def __init__(self, master:tk.Toplevel, mode:MODE_CONFIG=MODE.get(0)): # dimension:DIMENSION=DIMENSION(16, 16), rate:float=.15, amount=40):
+    def __init__(self, master:tk.Toplevel, mode:MODE_CONFIG=MODES.get(0)): # dimension:DIMENSION=DIMENSION(16, 16), rate:float=.15, amount=40):
         self.master = master
         self.mode = mode
-        self.frame = tk.Frame(master=self.master)
+        self.frame = tk.Frame(master=self.master.frm_main)
         self.is_over = False
         if self.mode.amount:
             self.IED_count = self.mode.amount
@@ -217,8 +224,6 @@ class Field:
         # return IEDs
 
     def oops(self):
-        # if self.mode.special:
-        #     return # TODO - remove after testing
         self.master.timer.stop()
         self.master.update_status(STATUS_BOOM)
         self.is_over = True
@@ -234,6 +239,7 @@ class Field:
         if self.map_cleared >= self.map_goal:
             self.master.timer.stop()
             self.master.update_status(STATUS_YEAH)
+            ### TODO implement revealing of showing IEDs
             # for elem in self.map.values():
             #     elem.reveal()
             self.is_over = True
@@ -254,7 +260,7 @@ def gradient_colour(main:int, increm=0x080808, n=8, darken=True, as_string=False
         colours = [main + (-i if darken else i) * increm for i in range(n)]
     return colours
 
-def zip_gradient(colours:list, flatten=True, **kwargs):
+def zip_gradient(colours:list, **kwargs):
     kwargs = {kw: val for kw, val in kwargs.items() if kw in ('increm', 'n', 'darken', 'as_string')}
     grads = [gradient_colour(c, **kwargs) for c in colours]
     return list(zip(*grads))
@@ -268,7 +274,9 @@ class MapElem:
         5: 'maroon',
         6: 'cyan4',
         7: 'purple',
-        8: 'seashell4'
+        8: 'seashell4',
+        9: 'goldenrod',
+        10: 'pink4'
     }
     def __init__(self, field, coord, val=0):
         self.field = field
@@ -278,7 +286,7 @@ class MapElem:
         self.val = val
         # self.colour = MapElem.clue_colours.get(val, 'SystemButtonText')
         # self.is_IED = True if val else False
-        self.clue = None
+        self.clue = 0
         self.flagged = 0
         self.revealed = False
         self.box = None
@@ -338,14 +346,6 @@ class MapElem:
         return lbl
 
     def create_actual(self):
-        # if self.is_IED:
-        #     # if self.field.mode.special:
-        #     #     actual = MapElem.val_colours.get(self.val)
-        #     # else:
-        #     #     actual = '✹' if self.field.is_over else '✨'   #'☀'
-        #     actual = self.get_IED_text()
-        # else:
-        #     actual = self.clue if self.clue else ''
         self.lbl = self.label_actual()
         self.lbl.bind('<ButtonRelease-1>', self.omni_click)
         self.lbl.bind('<ButtonRelease-3>', self.omni_click)
@@ -355,21 +355,18 @@ class MapElem:
         if self.field.map_cleared == 0:
             self.field.set_IEDs(self.coord)
         if not self.revealed and self.flagged == 0:
-            # if not self.is_IED:
             self.revealed = True
             self.count_adjacent_IEDs()
             self.create_actual()
             self.box.destroy()
-            if self.clue == 0:
+            if self.clue == 0 and not self.is_IED:
                 for elem in self.adjacents():
                     elem.reveal()
             if not self.field.is_over:
                 if self.is_IED:
-                    # self.lbl.config(fg='red') #, text='✨')
                     self.field.oops()
                 else:
                     self.field.check_clear()
-            # return self.lbl
 
     def __eq__(self, other):
         return self.val == other
@@ -389,58 +386,42 @@ class MapElem:
     def left_release(self):
         self.reveal()
     
-    def right_release(self, evt=None):
+    def right_release(self):
+        ### still trying to figure out if right release can be separated from right click for fast flagging
         # unheld = (evt.state & MOUSE_LEFT > 0) if evt else True
         # if not self.revealed and unheld:
         if not self.revealed:
             # self.flagged = self.box.flag()
-            self.box.flag()
+            self.box.flag()            
 
     def both_release(self, *evt):
-        adjs = list(self.adjacents())
-        flags = sum(adj.flagged for adj in adjs)
-        if flags == self.clue:
+        if self.adjacent_flags() == self.clue:
             self.reveal()
-            for adj in adjs:
+            for adj in self.adjacents():
                 adj.reveal()
         else:
             if self.field.master.var_sound.get():
                 self.field.master.bell()
 
+    def adjacent_flags(self):
+        return sum(adj.flagged for adj in self.adjacents())
+
 class MapNumbedElem(MapElem):
-    val_numbers = {
-        1 : '①',
-        2 : '②',
-        3 : '③',
-        4 : '④',
-        5 : '⑤',
-        6 : '⑥',
-        7 : '⑦',
-        8 : '⑧',
-        9 : '⑨',
-        10 : '⑩'
-    }
     val_colours = MapElem.clue_colours
-    val_colours.update(
-        {
-            9: 'goldenrod',
-            10: 'pink4'
-        }
-    )
     clue_colours = {
         i: clue_colour for i, clue_colour in enumerate(
             colour for c_set in zip_gradient(
                 [
-                    0x5858D0,
-                    0x58D058,
-                    0xD05858,
-                    0x58D0D0,
-                    0xD0D058,
-                    0xD058D0,
-                    0xA06A48,
-                    0x6A48A0,
-                    0x48A06A,
-                    0x585858
+                    0x804868,
+                    0x5858C0,
+                    0x58C058,
+                    0xC05858,
+                    0x58C0C0,
+                    0xC0C058,
+                    0xC058C0,
+                    0xA06048,
+                    0x6048A0,
+                    0x48A060
                 ],
                 as_string=True
             ) for colour in c_set
@@ -448,7 +429,7 @@ class MapNumbedElem(MapElem):
     }
     def get_IED_config(self):
         config = {
-            'text' : MapNumbedElem.val_numbers.get(self.val),
+            'text' : CIRCLED_NUMBERS.get(self.val),
             'fg' : MapNumbedElem.val_colours.get(self.val) if self.field.is_over else 'yellow',
             'font' : ('tkDefaultFont', 12, 'bold')
         }
@@ -461,25 +442,20 @@ class MapNumbedElem(MapElem):
             )
         return config # MapNumbedElem.val_numbers.get(self.val)
 
+    def create_actual(self):
+        super().create_actual()
+        self.lbl.bind('<Enter>', lambda e: self.field.master.hinter.update(self))
+        self.lbl.bind('<Leave>', self.field.master.hinter.reset)
+
     def build_surprise_box(self):
         self.box = NumbedSurprise(self)
         self.build(self.box)
         return self.box
 
-# class MapIED(MapElem):
-#     def reveal(self):
-#         # if self.field.map_cleared == 0
-#         if not self.revealed and not self.flagged:
-#             self.create_actual()
-#             self.box.destroy()
-#             self.revealed = True
-#             if not self.field.is_over:
-#                 self.lbl.config(fg='red', text='✨')
-#                 self.field.oops()
-#             return self.lbl
-
 
 class Surprise(tk.Button):
+    ''' Concealer button object to handle flagging '''
+
     def __init__(self, parent, *args, **kwargs):
         self.parent = parent
         super().__init__(
@@ -513,7 +489,7 @@ class Surprise(tk.Button):
             num = 1
         else:
             flag_config = {
-                'text': MapNumbedElem.val_numbers.get(num),
+                'text': CIRCLED_NUMBERS.get(num),
                 'fg': MapNumbedElem.val_colours.get(num),
             }
 
@@ -535,20 +511,15 @@ class Surprise(tk.Button):
         if not self.parent.is_IED:
             self.config(text='❌', fg='white', bg='maroon')
 
-class NumbedSurprise(Surprise):
 
-    # def flag(self, num):
-    #     if self.flagged == num:
-    #         self.config(text='')
-    #         self.flagged = 0
-    #     else:
-    #         self.config(text=str(num))
-    #         self.flagged = num
-    
+class NumbedSurprise(Surprise):
+    ''' Subclass concealer button to handle additional flagging '''
+
     def set_other_bindings(self):
         self.bind('<ButtonRelease-3>', lambda e: self.parent.omni_click(e, ignore=True))
         self.bind('<Enter>', lambda e: self.focus_set())
         self.bind('<Leave>', lambda e: self.parent.frame.focus_set())
+
         # NUM binding
         for i, s in enumerate('1234567890', 1):
             if i > 10: i = 10
@@ -566,7 +537,115 @@ class NumbedSurprise(Surprise):
             self.config(bg='gold')
         super().check_false_flag()
 
-        
+class HintBar(tk.Frame):
+    Hint = namedtuple('Hint', 'frame label counter')
+    def __init__(self, gui:GUI, parent_frame):
+        self.gui = gui
+        self.parent_frame = parent_frame
+        self.exists = False    
+    
+    def build(self):
+        super().__init__(master=self.parent_frame)
+        self.hints = {
+            k: self.create_inner_frame(k)
+            for k in ('Total', 'Flagged', 'Remaining')
+        }
+        for i, hint in enumerate(self.hints.values()):
+            hint.frame.grid(row=0, column=i, sticky=tk.NSEW)
+            hint.label.pack()
+        self.pack(fill=tk.BOTH, expand=True)
+        for i in range(3):
+            self.columnconfigure(index=i, weight=1)
+        self.exists = True
+
+    def create_inner_frame(self, ctype):
+        frame = tk.LabelFrame(master=self, text=f'{ctype}:')
+        counter = tk.IntVar()
+        label = tk.Label(master=frame, textvariable=counter)
+        return HintBar.Hint(frame, label, counter)
+
+    def update(self, hinter:MapNumbedElem):
+        if not self.gui.field.is_over:
+            total = hinter.clue
+            flags = hinter.adjacent_flags()
+            self.hints['Total'].counter.set(total)
+            self.hints['Flagged'].counter.set(flags)
+            self.hints['Remaining'].counter.set(total - flags)
+    
+    def reset(self, *args):
+        if not self.gui.field.is_over:
+            for hint in self.hints.values():
+                hint.counter.set(0)
+    
+    def destroy(self):
+        self.exists = False
+        super().destroy()
+
+class NumbHelper(tk.Frame):
+    ''' Helper Frame object to help track flags '''
+    def __init__(self, master, parent_frame, nrows):
+        self.master = master
+        self.nrows = nrows
+        self.tracker = {i: 0 for i in range(1, 10)}
+        super().__init__(master=parent_frame)
+        self.build = self.pack
+
+    def create_label(self, frame, value, repeat=1):
+        frm_val = tk.Frame(self)
+        lbls = [
+            tk.Label(
+                master=frame,
+                image=self.master.empty_image,
+                text=CIRCLED_NUMBERS.get(value),
+                font=('tkDefaultFont', 11),
+                compound='c',
+                bg='grey'
+            ) for _ in range(self.nrows) for __ in range(repeat) 
+        ]
+        return lbls
+
+    def create_set(self):
+        for i in numbers:
+            pass
+
+# class Hint(tk.Label):
+#     def __init__(self, master, parent_frame, value, *args, **kwargs):
+#         self.master = master
+#         self.value = value
+#         self.value_text = CIRCLED_NUMBERS.get(self.value)
+#         super().__init__(
+#             master=parent_frame,
+#             text=self.value_text,
+#             image=self.master.empty_image,
+#             width=16,
+#             height=16,
+#             compound='c',
+#             font=('tkDefaultFont', 11)
+#             *args, **kwargs
+#         )
+#         self._flagged = False
+    
+#     @property
+#     def flag(self):
+#         return self._flagged
+    
+#     @flag.setter
+#     def flag(self, val):
+#         self._flagged = val
+#         if val:
+            
+    
+#     def flag(self):
+#         self.config(fg='limegreen')
+#         self.flagged = True
+    
+#     def unflag(self):
+#         self.config(fg='SystemButtonText')
+    
+#     def overflagged(self):
+#         self.config(fg='red')
+
+
 if __name__ == '__main__':
     gui = GUI()
     gui.run()
