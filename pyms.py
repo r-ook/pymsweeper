@@ -79,6 +79,7 @@ class GUI(tk.Tk):
         self.field = None
         self.frm_main = tk.Frame(self)
         self.frm_helper = tk.Frame(self)
+        self.clueshelper = NumbHelper(self, self.frm_helper)
         self.hinter = HintBar(self, self.frm_helper)
         self.build_status_bar()
         # self.frm_main.pack()
@@ -127,9 +128,13 @@ class GUI(tk.Tk):
             self.frm_helper.grid()
             if not self.hinter.exists:
                 self.hinter.build()
+            if not self.clueshelper.exists:
+                self.clueshelper.build(mode.amount // 13)
         else:
             if self.hinter.exists:
                 self.hinter.destroy()
+            if self.clueshelper.exists:
+                self.clueshelper.destroy()
             self.frm_helper.grid_remove()
         self.update_status(STATUS_OKAY)
         self.timer.start()
@@ -583,69 +588,48 @@ class HintBar(tk.Frame):
 
 class NumbHelper(tk.Frame):
     ''' Helper Frame object to help track flags '''
-    def __init__(self, master, parent_frame, nrows):
-        self.master = master
-        self.nrows = nrows
-        self.tracker = {i: 0 for i in range(1, 10)}
-        super().__init__(master=parent_frame)
-        self.build = self.pack
+    def __init__(self, parent, parent_frame):
+        self.parent = parent
+        self.parent_frame = parent_frame
+        self.nrows = None
+        self.tracker = None
+        self.exists = False
+    
+    def build(self, nrows):
+        self.tracker = {i: 0 for i in range(1, 11)}
+        self.nrows = nrows        
+        super().__init__(master=self.parent_frame)
+        self.create_labels()
+        self.pack()
+        self.exists=True
 
-    def create_label(self, frame, value, repeat=1):
-        frm_val = tk.Frame(self)
-        lbls = [
-            tk.Label(
-                master=frame,
-                image=self.master.empty_image,
-                text=CIRCLED_NUMBERS.get(value),
-                font=('tkDefaultFont', 11),
+    def create_labels(self):
+        self.lbls = {
+            (v, n + 1) : tk.Label(
+                master=self,
+                image=self.parent.empty_image,
+                text=CIRCLED_NUMBERS.get(v),
+                # font=('tkDefaultFont', 11),
                 compound='c',
-                bg='grey'
-            ) for _ in range(self.nrows) for __ in range(repeat) 
-        ]
-        return lbls
-
-    def create_set(self):
-        for i in numbers:
-            pass
-
-# class Hint(tk.Label):
-#     def __init__(self, master, parent_frame, value, *args, **kwargs):
-#         self.master = master
-#         self.value = value
-#         self.value_text = CIRCLED_NUMBERS.get(self.value)
-#         super().__init__(
-#             master=parent_frame,
-#             text=self.value_text,
-#             image=self.master.empty_image,
-#             width=16,
-#             height=16,
-#             compound='c',
-#             font=('tkDefaultFont', 11)
-#             *args, **kwargs
-#         )
-#         self._flagged = False
-    
-#     @property
-#     def flag(self):
-#         return self._flagged
-    
-#     @flag.setter
-#     def flag(self, val):
-#         self._flagged = val
-#         if val:
+                fg='grey'
+            ) for v in range(1, 11) for n in range(self.nrows if v < 10 else self.nrows * 4)
+        }
+        for (num, count), lbl in self.lbls.items():
+            if num < 10:
+                lbl.grid(row=count - 1, column=num - 1)
+            else:
+                lbl.grid(row=count % 4, column=num - 1 + (count - 1)// 4)
             
-    
-#     def flag(self):
-#         self.config(fg='limegreen')
-#         self.flagged = True
-    
-#     def unflag(self):
-#         self.config(fg='SystemButtonText')
-    
-#     def overflagged(self):
-#         self.config(fg='red')
+    def destroy(self):
+        self.exists = False
+        super().destroy()
 
 
 if __name__ == '__main__':
     gui = GUI()
     gui.run()
+    # root = tk.Tk()
+    # root.empty_image = tk.PhotoImage(width=1, height=1)
+    # nums = NumbHelper(root, root)
+    # nums.build(4)
+    # root.mainloop()
