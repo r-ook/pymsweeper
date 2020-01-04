@@ -583,25 +583,33 @@ class HintBar(tk.Frame):
         }
         for i, hint in enumerate(self.hints.values()):
             hint.frame.grid(row=0, column=i, sticky=tk.NSEW)
-            hint.label.pack()
+            hint.label.pack(fill=tk.BOTH, expand=True)
         self.pack(fill=tk.BOTH, expand=True)
         for i in range(3):
             self.columnconfigure(index=i, weight=1)
         self.exists = True
 
     def create_inner_frame(self, ctype):
+        def validate(hinter):
+            if hinter.counter.get() < 0:
+                hinter.label.config(bg='yellow')
+            else:
+                hinter.label.config(bg='SystemButtonFace')
         frame = tk.LabelFrame(master=self, text=f'{ctype}:')
         counter = tk.IntVar()
         label = tk.Label(master=frame, textvariable=counter)
-        return HintBar.Hint(frame, label, counter)
+        hinter = HintBar.Hint(frame, label, counter)
+        counter.trace('w', lambda *args: validate(hinter))
+        return hinter
 
     def update(self, hinter:MapNumbedElem):
         if not self.gui.field.is_over:
             total = hinter.clue
             flags = hinter.adjacent_flags()
+            remaining = total - flags
             self.hints['Total'].counter.set(total)
             self.hints['Flagged'].counter.set(flags)
-            self.hints['Remaining'].counter.set(total - flags)
+            self.hints['Remaining'].counter.set(remaining)
     
     def reset(self, *args):
         if not self.gui.field.is_over:
