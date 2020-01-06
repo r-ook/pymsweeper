@@ -185,7 +185,7 @@ class Timer:
 
     def to_string(self):
         current = time() - self.start_time
-        h, m, s = int(current // 360), int(current % 360 // 60), int(current % 60)
+        h, m, s = int(current // 3600), int(current % 3600 // 60), int(current % 60)
         self.string.set(f'{h:02}:{m:02}:{s:02}')
 
     def stop(self):
