@@ -28,34 +28,27 @@ MODES = {
 }
 
 # Circled Number constants
-CIRCLED_NUMBERS = {
-    1 : '①',
-    2 : '②',
-    3 : '③',
-    4 : '④',
-    5 : '⑤',
-    6 : '⑥',
-    7 : '⑦',
-    8 : '⑧',
-    9 : '⑨',
-    10 : '⑩'
-}
+# CIRCLED_NUMBERS = {
+#     1 : '①',
+#     2 : '②',
+#     3 : '③',
+#     4 : '④',
+#     5 : '⑤',
+#     6 : '⑥',
+#     7 : '⑦',
+#     8 : '⑧',
+#     9 : '⑨',
+#     10 : '⑩'
+# }
+# CIRCLED_NUMBERS = {i + 1: chr(0x2780 + i) for i in range(10)}
+CIRCLED_NUMBERS = {i + 1: chr(0x2460 + i) for i in range(10)}
 
-NEG_CIRCLED_NUMBERS = {
-    1 : '❶',
-    2 : '❷',
-    3 : '❸',
-    4 : '❹',
-    5 : '❺',
-    6 : '❻',
-    7 : '❼',
-    8 : '❽',
-    9 : '❾',
-    10 : '❿'
-}
+# NEG_CIRCLED_NUMBERS = {i + 1: chr(0x2776 + i) for i in range(10)}
+NEG_CIRCLED_NUMBERS = {i + 1: chr(0x278A + i) for i in range(10)}
 
 class GUI(tk.Tk):
     ''' Main tkinter class that hosts window configs '''
+    Options = namedtuple('Options', 'sound mouseover tracker blackjack')
 
     def __init__(self):
         super().__init__()
@@ -63,23 +56,69 @@ class GUI(tk.Tk):
         self.empty_image = tk.PhotoImage(width=1, height=1)     # generic image to force size on button widgets
         self.var_mode = tk.IntVar()
         self.var_mode.set(0)
-        self.var_sound = tk.BooleanVar()
-        self.var_sound.set(False)
+        self.options = GUI.Options(*(tk.BooleanVar(name=opt_name) for opt_name in ('Warning Sound', 'Mouseover Hint', 'Flags Tracker', 'Blackjack!')))
+        self.options.sound.set(False)
+        for _bool, _opt in enumerate(self.options):
+            _opt.set(int(_bool))
+            _opt.trace('w', lambda *_, opt=_opt: self.option_callback(opt))
+        # self.options.mouseover.set(True)
+        # self.options.tracker.set(True)
+        # self.options.blackjack.set(True)
+        # self.options.mouseover.trace('w', lambda *_, opt=self.options.mouseover: self.option_callback(opt))
+        # self.options.tracker.trace('w', lambda *_, opt=self.options.tracker: self.option_callback(opt))
+        # self.options.blackjack.trace('w', lambda *_, opt=self.options.blackjack: self.option_callback(opt))
+
         self.create_menus()
         self.timer = Timer(self)
         self.field = None
         self.frm_main = tk.Frame(self)
         self.frm_helper = tk.Frame(self)
-        self.clueshelper = NumbHelper(self, self.frm_helper)
         self.hinter = HintBar(self, self.frm_helper)
+        self.clueshelper = NumbHelper(self, self.frm_helper)
+
+        # Build the main frames
         self.build_status_bar()
+        self.build_field(MODES.get(self.var_mode.get()))
         self.frm_main.grid(row=1, column=0, sticky=tk.NSEW)
         self.frm_helper.grid(row=2, column=0, sticky=tk.NSEW)
+        self.frm_helper.grid_columnconfigure(index=0, weight=1)
+        self.frm_helper.bind('<Expose>', self.widget_exposed)
+        self.hinter.build()
+
+    def taco_bell(self, state):
+        self.bell = super().bell if state else lambda: None
+
+    def allow_blackjack(self, state):
+        if state and self.var_mode.get() >= 3:
+            self.frm_IEDs.config(columnspan=1)
+            self.frm_blew.grid(row=0, column=3, sticky=tk.NSEW)
+            self.lbl_blew.pack()
+        else:
+            self.frm_IEDs.config(columnspan=2)
+            self.frm_blew.grid_forget()
+
+    def option_callback(self, opt):
+        # Callback option to hide/unhide helpers
+        # Using id(...) to overcome the unhashable tk Vars
+        parser = {
+            id(self.options.sound): self.taco_bell,
+            id(self.options.mouseover): self.hinter.show,
+            id(self.options.tracker): self.clueshelper.show,
+            id(self.options.blackjack): getattr(self.field, 'allow_threshold', lambda _: None)
+        }
+        parser[id(opt)](opt.get())
+
+    def widget_exposed(self, evt=None):
+        if not any(child.winfo_viewable() for child in evt.widget.children.values()):
+            evt.widget.config(height=1)
 
     def create_menus(self):
+        # Setting up menus...
         menubar = tk.Menu(self)
         norm_modes = tk.Menu(self, tearoff=0)
         numb_modes = tk.Menu(self, tearoff=0)
+
+        # Setting the modes...
         for idx, mode in MODES.items():
             mode_menu = numb_modes if mode.special else norm_modes
             mode_menu.add_radiobutton(
@@ -88,16 +127,25 @@ class GUI(tk.Tk):
                 variable=self.var_mode,
                 command=lambda build_mode=mode: self.build_field(build_mode)
             )
+
+        # Adding difficulty menu...
         diff_menu = tk.Menu(self, tearoff=0)
         diff_menu.add_cascade(label='Normal', menu=norm_modes)
         diff_menu.add_cascade(label='Hybrid', menu=numb_modes)
-        option_menu = tk.Menu(self, tearoff=0)
-        option_menu.add_checkbutton(
-            label='Warning Sound',
-            variable=self.var_sound
-        )
+        
+        # Adding option menu...
+        self.options_menu = tk.Menu(self, tearoff=0)
+        self.special_menu = tk.Menu(self, tearoff=0)
+        options = iter(self.options)
+        sound = next(options)
+        self.options_menu.add_checkbutton(label=sound._name, variable=sound)
+        for opt in options:
+            self.special_menu.add_checkbutton(label=opt._name, variable=opt)
+        self.options_menu.add_cascade(label='Hybrid', menu=self.special_menu)
+
+        # Compile the menus together...
         menubar.add_cascade(label='Modes', menu=diff_menu)
-        menubar.add_cascade(label='Options', menu=option_menu)
+        menubar.add_cascade(label='Options', menu=self.options_menu)
         self.config(menu=menubar)
 
     def build_status_bar(self):
@@ -118,40 +166,47 @@ class GUI(tk.Tk):
         self.update_status(STATUS_OKAY)
         self.frm_IEDs = tk.LabelFrame(self.frm_status, text='IEDs:')
         self.lbl_IEDs = tk.Label(self.frm_IEDs, text='0')
+        self.frm_blew = tk.LabelFrame(self.frm_status, text='Hit:')
+        self.lbl_blew = tk.Label(self.frm_blew, text='0') 
         
         # Grid management... ugh
         self.frm_status.grid(row=0, column=0, sticky=tk.NSEW)
-        self.frm_status.columnconfigure(index=0, weight=3)
-        self.frm_status.columnconfigure(index=1, weight=1)
+        self.frm_status.columnconfigure(index=0, weight=6)
+        self.frm_status.columnconfigure(index=1, weight=2)
         self.frm_status.columnconfigure(index=2, weight=3)
+        self.frm_status.columnconfigure(index=3, weight=3)
         self.frm_timer.grid(row=0, column=0, sticky=tk.NSEW)
         self.btn_main.grid(row=0, column=1, sticky=tk.NS)
-        self.frm_IEDs.grid(row=0, column=2, sticky=tk.NSEW)
+        self.frm_IEDs.grid(row=0, column=2, columnspan=2, sticky=tk.NSEW)
         self.lbl_timer.pack()
         self.lbl_IEDs.pack()
 
     def build_field(self, mode:MODE_CONFIG):
         # seperate the special mode later....
         if mode.special:
-            self.frm_helper.grid()
-            if not self.hinter.exists:
-                self.hinter.build()
-            if self.clueshelper.exists:
-                self.clueshelper.destroy()
             self.clueshelper.build(mode.amount // 13)
+            self.options_menu.entryconfig('Hybrid', state=tk.DISABLED)
+            for opt in (self.options.mouseover, self.options.tracker):
+                # self.options_menu.entryconfig(opt._name, state=tk.NORMAL)
+                self.option_callback(opt)
         else:
+            self.options_menu.entryconfig('Hybrid', state=tk.NORMAL)
+            # self.options_menu.entryconfig(self.options.mouseover._name, state=tk.DISABLED)
+            # self.options_menu.entryconfig(self.options.tracker._name, state=tk.DISABLED)
             if self.hinter.exists:
-                self.hinter.destroy()
+                self.hinter.show(False)
             if self.clueshelper.exists:
                 self.clueshelper.destroy()
-            self.frm_helper.grid_remove()
+
         if not self.field is None:
             self.field.destroy()
         self.field = Field(self, mode)
         self.field.build()
         self.lbl_IEDs.config(textvariable=self.field.IED_current)
+        self.lbl_blew.config(textvariable=self.field.IED_blew)
         self.update_status(STATUS_OKAY)
-        self.timer.start()
+        self.timer.stop()
+        # self.timer.start()
 
     def update_status(self, status:STATUS):
         ''' Update main happy face button '''
@@ -170,8 +225,8 @@ class Timer:
         self.parent = parent
         self.string = tk.StringVar()
         self.string.set('00:00:00')
-        self.start_time = None
-        self.end_time = None
+        self.start_time = 0
+        self.end_time = 0
         self._job = None
 
     def start(self):
@@ -189,14 +244,16 @@ class Timer:
         self.string.set(f'{h:02}:{m:02}:{s:02}')
 
     def stop(self):
+        print('stop!')
         self.end_time = time() - self.start_time
         self.to_string()
-        self.parent.after_cancel(self._job)
-        # return self.end_time
+        if self._job is not None:
+            self.parent.after_cancel(self._job)
+        print(self._job)
 
 
 class Field:
-    def __init__(self, parent:tk.Toplevel, mode:MODE_CONFIG=MODES.get(0)): # dimension:DIMENSION=DIMENSION(16, 16), rate:float=.15, amount=40):
+    def __init__(self, parent:tk.Toplevel, mode:MODE_CONFIG=MODES.get(0)):
         self.parent = parent
         self.mode = mode
         self.frame = tk.Frame(master=self.parent.frm_main)
@@ -207,16 +264,23 @@ class Field:
             self.IED_count = int(self.mode.x * self.mode.y * self.mode.rate)
         self.IED_current = tk.IntVar()
         self.IED_current.set(self.IED_count)
+        self.IEDs = set()
         self.map_cleared = 0
         self.map = {
             (x, y): MapNumbedElem(self, (x, y)) if self.mode.special else MapElem(self, (x, y)) 
-            # MapIED(self, (x, y), 1) if (x, y) in self.IEDs else MapElem(self, (x, y))
-            # MapElem(self, (x, y), 'X' if (x, y) in self.IEDs else None)
             for x in range(self.mode.x)
             for y in range(self.mode.y)
         }
-        self.IEDs = set()
+        if mode.special:
+            self.allow_threshold(self.parent.options.blackjack.get())
+        else:
+            self.IED_threshold = 0
+        self.IED_blew = tk.IntVar()
+        self.IED_blew.set(0)
         self.map_goal = self.mode.x * self.mode.y - self.IED_count
+
+    def allow_threshold(self, state=True):
+        self.IED_threshold = 21 if state else 0
 
     def build(self):
         for elem in self.map.values():
@@ -234,12 +298,19 @@ class Field:
             cards = cards * (self.mode.amount // 13)
             shuffle(cards)
             for IED in self.IEDs:
-                self.map.get(IED).val = cards.pop()
+                self.map.get(IED).is_IED = cards.pop()
         else:
             for IED in self.IEDs:
-                self.map.get(IED).is_IED = True
+                self.map.get(IED).is_IED = 1
+        self.parent.timer.start()
 
-    def oops(self):
+    def check_over(self, elem): 
+        self.IED_blew.set(self.IED_blew.get() + elem.is_IED)
+        if self.IED_blew.get() > self.IED_threshold:
+            elem.is_final()
+            self.bewm()
+
+    def bewm(self):
         ''' When the field blows up '''
         self.parent.timer.stop()
         self.parent.update_status(STATUS_BOOM)
@@ -258,7 +329,6 @@ class Field:
             self.parent.timer.stop()
             self.is_over = True
             self.parent.update_status(STATUS_YEAH)
-            ### TODO implement revealing of showing IEDs
             for elem in self.map.values():
                 elem.just_reveal(safe=True)
             messagebox.showinfo('Subarashi!', 'You did it!')
@@ -296,13 +366,12 @@ class MapElem:
         9: 'goldenrod',
         10: 'pink4'
     }
-    def __init__(self, field, coord, val=0):
+    def __init__(self, field, coord): #, val=0):
         self.field = field
         self.coord = coord
         self.frame = tk.Frame(self.field.frame, width=24, height=24)
         self.frame.pack_propagate(False)
-        self.val = val
-        # self.colour = MapElem.clue_colours.get(val, 'SystemButtonText')
+        self.is_IED = 0
         # self.is_IED = True if val else False
         self.clue = 0
         self.flagged = 0
@@ -310,15 +379,15 @@ class MapElem:
         self.box = None
         self.lbl = None
 
-    @property
-    def is_IED(self):
-        return True if self.val else False
+    # @property
+    # def is_IED(self):
+    #     return True if self.val > 0 else False
     
-    @is_IED.setter
-    def is_IED(self, value):
-        self.val = 1 if value else 0
+    # @is_IED.setter
+    # def is_IED(self, value):
+    #     self.val = value if value else 0
 
-    def build(self, widget): # widget:tk.Widget):
+    def build(self, widget):
         self.frame.grid(row=self.coord[1], column=self.coord[0], sticky=tk.NSEW)
         widget.pack()
 
@@ -329,7 +398,7 @@ class MapElem:
 
     def count_adjacent_IEDs(self):
         if not self.is_IED:
-            self.clue = sum(adj.val for adj in self.adjacents())
+            self.clue = sum(adj.is_IED for adj in self.adjacents())
         return self.clue
 
     def adjacents(self):
@@ -337,13 +406,24 @@ class MapElem:
         mapper = self.field.map
         return (mapper.get((rx, ry)) for rx in range(cx-1, cx+2) for ry in range(cy-1, cy+2) if mapper.get((rx, ry)))
 
-    def get_IED_config(self):
+    def get_IED_config(self, final=False):
         config = {
-            'text' : '☀' if self.field.is_over else '✨',   #'☀'
-            'fg' : 'SystemButtonText' if self.field.is_over else 'red',
-            'font' : ('tkDefaultFont', 12, 'bold')
-        }
-        return config # '✹' if self.field.is_over else '✨'   #'☀'
+            True: {
+                'text': '✨',
+                'fg': 'red',
+            },
+            False: {'text' : '☀'}
+        }.get(final)
+        config.update({'font' : ('tkDefaultFont', 12, 'bold')})
+        #     }
+        #     'text' : '☀' if self.field.is_over else '✨',
+        #     'fg' : 'SystemButtonText' if self.field.is_over else 'red',
+        #     'font' : ('tkDefaultFont', 12, 'bold')
+        # }
+        return config
+
+    def is_final(self):
+        self.lbl.config(**self.get_IED_config(final=True))
 
     def label_actual(self):
         if self.is_IED:
@@ -365,8 +445,9 @@ class MapElem:
 
     def create_actual(self):
         self.lbl = self.label_actual()
-        self.lbl.bind('<ButtonRelease-1>', self.omni_click)
-        self.lbl.bind('<ButtonRelease-3>', self.omni_click)
+        if self.is_IED == 0:
+            self.lbl.bind('<ButtonRelease-1>', self.omni_click)
+            self.lbl.bind('<ButtonRelease-3>', self.omni_click)
         self.lbl.pack()
 
     def reveal(self):
@@ -380,7 +461,7 @@ class MapElem:
                     elem.reveal()
             if not self.field.is_over:
                 if self.is_IED:
-                    self.field.oops()
+                    self.field.check_over(self)
                 else:
                     self.field.check_clear()
 
@@ -395,8 +476,8 @@ class MapElem:
             self.box.destroy()
         return go_ahead
 
-    def __eq__(self, other):
-        return self.val == other
+    # def __eq__(self, other):
+    #     return self.val == other
 
     def omni_click(self, evt, ignore=False):
         if self.field.is_over:
@@ -427,8 +508,8 @@ class MapElem:
             for adj in self.adjacents():
                 adj.reveal()
         else:
-            if self.field.parent.var_sound.get():
-                self.field.parent.bell()
+            # if self.field.parent.options.sound.get():
+            self.field.parent.bell()
 
     def adjacent_flags(self):
         return sum(adj.flagged for adj in self.adjacents())
@@ -454,25 +535,28 @@ class MapNumbedElem(MapElem):
             ) for colour in c_set
         )
     }
-    def get_IED_config(self):
+    def get_IED_config(self, final=False):
         config = {
-            'text' : NEG_CIRCLED_NUMBERS.get(self.val),
-            'fg' : MapNumbedElem.val_colours.get(self.val) if self.field.is_over else 'white',
+            'text' : NEG_CIRCLED_NUMBERS.get(self.is_IED),
+            'fg' : MapNumbedElem.val_colours.get(self.is_IED),
             'font' : ('tkDefaultFont', 12)
         }
         if not self.field.is_over:
             config.update(
                 {
-                    'bg': 'maroon',
+                    'bg': 'gold', # 'maroon'
                     'relief': tk.SUNKEN
                 }
             )
+        if final:
+            config.update({'fg': 'white', 'bg': 'red3'})
         return config # MapNumbedElem.val_numbers.get(self.val)
 
     def create_actual(self):
         super().create_actual()
-        self.lbl.bind('<Enter>', lambda e: self.field.parent.hinter.update(self))
-        self.lbl.bind('<Leave>', self.field.parent.hinter.reset)
+        if self.is_IED == 0:
+            self.lbl.bind('<Enter>', lambda e: self.field.parent.hinter.update(self))
+            self.lbl.bind('<Leave>', self.field.parent.hinter.reset)
 
     def build_surprise_box(self):
         self.box = NumbedSurprise(self)
@@ -563,19 +647,21 @@ class NumbedSurprise(Surprise):
             self.bind(s.upper(), lambda e, x=i: self.flag(x))
 
     def check_false_flag(self):
-        if self.flagged != self.parent.val:
+        if self.flagged != self.parent.is_IED:
             self.config(**self.parent.get_IED_config())
-            self.config(bg='gold')
+            self.config(bg='orange')
         super().check_false_flag()
 
 class HintBar(tk.Frame):
     Hint = namedtuple('Hint', 'frame label counter')
-    def __init__(self, gui:GUI, parent_frame):
+    def __init__(self, gui: GUI, parent_frame):
         self.gui = gui
         self.parent_frame = parent_frame
         self.exists = False    
     
     def build(self):
+        if self.exists:
+            self.destroy()
         super().__init__(master=self.parent_frame)
         self.hints = {
             k: self.create_inner_frame(k)
@@ -584,10 +670,21 @@ class HintBar(tk.Frame):
         for i, hint in enumerate(self.hints.values()):
             hint.frame.grid(row=0, column=i, sticky=tk.NSEW)
             hint.label.pack(fill=tk.BOTH, expand=True)
-        self.pack(fill=tk.BOTH, expand=True)
+        # self.pack(fill=tk.BOTH, expand=True)
+        # self.grid(row=0, column=0, sticky=tk.NSEW)
+        # self.unhide()
         for i in range(3):
             self.columnconfigure(index=i, weight=1)
         self.exists = True
+
+    def show(self, state):
+        self.grid(row=0, column=0, sticky=tk.NSEW) if state else self.grid_remove()     
+
+    # def unhide(self):
+    #     self.grid(row=0, column=0, sticky=tk.NSEW)
+    
+    # def hide(self):
+    #     self.grid_remove()
 
     def create_inner_frame(self, ctype):
         def validate(hinter):
@@ -610,12 +707,12 @@ class HintBar(tk.Frame):
             self.hints['Total'].counter.set(total)
             self.hints['Flagged'].counter.set(flags)
             self.hints['Remaining'].counter.set(remaining)
-    
+
     def reset(self, *args):
         if not self.gui.field.is_over:
             for hint in self.hints.values():
                 hint.counter.set(0)
-    
+
     def destroy(self):
         self.exists = False
         super().destroy()
@@ -623,25 +720,35 @@ class HintBar(tk.Frame):
 class NumbTracker:
     def __init__(self, maximum):
         self.maximum = maximum
-        self.count = 0
-        self.over = False
-    
+        self.flag_count = 0
+        self.blew_count = 0
+        self.lock_count = 0
+        # self.over = False
+
+    @property
+    def total(self):
+        return sum(self.flag_count, self.blew_count, self.lock_count)
+
+    @property
+    def over(self):
+        return self.total > self.maximum
+   
     def increase(self):
-        if not self.over and self.count >= self.maximum:
+        if not self.over and self.flag_count >= self.maximum:
             self.over = True
-        self.count += 1
+        self.flag_count += 1
     
     def decrease(self):
-        self.count = max(0, self.count - 1)
-        if self.over and self.count <= self.maximum:
+        self.flag_count = max(0, self.flag_count - 1)
+        if self.over and self.flag_count <= self.maximum:
             self.over = False
 
 
 class NumbHelper(tk.Frame):
     ''' Helper Frame object to help track flags '''
-    FLAG_ACTIVE = 'green'
+    FLAG_ACTIVE = 'dodger blue'
     FLAG_OVER = 'red'
-    FLAG_INACTIVE = 'grey'
+    FLAG_INACTIVE = 'LightCyan3'
     def __init__(self, parent, parent_frame):
         self.parent = parent
         self.parent_frame = parent_frame
@@ -650,6 +757,8 @@ class NumbHelper(tk.Frame):
         self.exists = False
     
     def build(self, nrows):
+        if self.exists:
+            self.destroy()
         self.nrows = nrows
         self.trackers = {
             i: NumbTracker(self.nrows * (4 if i >= 10 else 1))
@@ -657,8 +766,19 @@ class NumbHelper(tk.Frame):
         }
         super().__init__(master=self.parent_frame)
         self.create_labels()
-        self.pack()
+        # self.pack()
+        # self.grid(row=1, column=0)
+        # self.unhide()
         self.exists = True
+
+    def show(self, state=True):        
+        self.grid(row=1, column=0) if state else self.grid_remove()
+
+    # def unhide(self):
+    #     self.grid(row=1, column=0)
+    
+    # def hide(self):
+    #     self.grid_remove()
 
     def create_labels(self):
         self.lbls = {
