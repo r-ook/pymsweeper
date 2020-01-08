@@ -316,6 +316,14 @@ class Field:
                 self.map.get(IED).is_IED = 1
         self.parent.timer.start()
 
+    def expose_IEDs(self, clear, show_false_flags=False):
+        for IED in self.IEDs:
+            self.map[IED].reveal(over_and_clear=clear)
+        if show_false_flags:
+            for elem in self.map.values():
+                if elem.flagged:
+                    elem.check_false_flag()
+
     def check_threshold(self, elem): 
         ''' Check if threshold is met '''
         # self.IED_blew.set(self.IED_blew.get() + elem.is_IED)
@@ -330,11 +338,7 @@ class Field:
         last.is_final()
         self.parent.update_status(STATUS_BOOM)
         self.is_over = True
-        for IED in self.IEDs:
-            self.map.get(IED).reveal() #.guess()
-        for elem in self.map.values():
-            if elem.flagged:
-                elem.check_false_flag()
+        self.expose_IEDs(clear=False, show_false_flags=True)
         # messagebox.showwarning('Oh no!', 'You done goofed!')
 
     def check_clear(self):
@@ -344,8 +348,7 @@ class Field:
             self.parent.timer.stop()
             self.is_over = True
             self.parent.update_status(STATUS_YEAH)
-            for elem in self.map.values():
-                elem.reveal(is_over=True)
+            self.expose_IEDs(clear=True)
             congrats = 'You did it!'
             if self.IED_threshold > 0:
                 hit = self.IED_blew.get()
@@ -354,7 +357,7 @@ class Field:
                 else:
                     congrats += f'\nAnd you managed to remain clear without revealing any mines.\nCongrats!'
             messagebox.showinfo('S U B A R A S H I!', congrats)
-   
+
     def destroy(self):
         self.frame.destroy()
 
@@ -412,8 +415,8 @@ class MapElem:
             i = i * 2 - 1   # so that 0 = -1, 1 = 1
             if check != 0:
                 self.clueshelper.change_flag(check, i)      
-            else:
-                self.field.IED_current.change(i) 
+            elif not self.revealed:
+                self.field.IED_current.change(i)
         self.__flagged = num
 
     def get_flag_config(self, num=None):
@@ -451,16 +454,14 @@ class MapElem:
             cx, cy = self.coord
             mapper = self.field.map
             self._adjacents = [mapper.get((rx, ry)) for rx in range(cx-1, cx+2) for ry in range(cy-1, cy+2) if mapper.get((rx, ry))]
+            self._adjacents.remove(self)
         return self._adjacents
 
     def adjacent_IEDs(self):
         # if not self.is_IED:
         #     self.clue = sum(adj.is_IED for adj in self.adjacents)
         # return self.clue
-        if self.is_IED:
-            return 0
-        else:
-            return sum(adj.is_IED for adj in self.adjacents)
+        return 0 if self.is_IED else sum(adj.is_IED for adj in self.adjacents)
 
     def adjacent_flags(self):
         return sum(adj.flagged + (adj.is_IED * int(adj.revealed)) for adj in self.adjacents)
@@ -502,55 +503,65 @@ class MapElem:
         self.lbl.pack(fill=tk.BOTH, expand=True)
 
     def guess(self, safe=None):
-        # if (self.flagged == 0 and not self.revealed) or safe is not None:
-        if not self.revealed:
-            if self.flagged == 0 or safe is not None:
-                if self.field.map_cleared == 0:
-                    self.field.set_IEDs(self.coord)
-                self.reveal(safe=safe)
-                if self.clue == 0 and not self.is_IED:
-                    for adj in self.adjacents:
-                        adj.guess()
-                # if not self.field.is_over:
-                #     if self.is_IED and not safe:
-                #         self.field.check_threshold(self)
-                #     elif self.is_IED == 0:
-                #         if safe is False:
-                #             self.field.bewm(self)
-                #         else:
-                #             self.field.check_clear()
-                if not safe:
-                    if self.is_IED:
-                        self.field.check_threshold(self)
-                    elif safe is False:
-                        self.field.bewm(self)
-                    else:
-                        self.field.check_clear()
+        ''' Take a guess '''
+        go_ahead = self.reveal(safe=safe)
+        if go_ahead:
+            # Open adjacent cells if current is empty
+            if self.clue == 0 and not self.is_IED:
+                for adj in self.adjacents:
+                    adj.guess()
+            
+            # Unless it's confirmed safe (flag = IED), do the checks.
+            if not safe:
+                if self.is_IED:
+                    self.field.check_threshold(self)
+                elif safe is False:
+                    self.field.bewm(self)
+                else:
+                    self.field.check_clear()
 
-    def reveal(self, safe=False, is_over=False):
-        if self.flagged:
-            self.flagged = 0
-        self.revealed = True
-        self.clue = self.adjacent_IEDs()
-        self.create_actual()
-        if safe or is_over:
-            self.lbl.config(bg='lightblue')
-        self.box.pack_forget()
+    def reveal(self, safe=None, over_and_clear=None):
+        ''' Reveal the block if not already revealed '''
+        # This go_ahead is needed to stop the recursion of adjacent guessing from happening
+        # It removes the need to do the same check twice in both methods
+        go_ahead = (not self.revealed and (self.flagged == 0 or safe is not None))
+        if go_ahead:
+            if self.field.map_cleared == 0:
+                self.field.set_IEDs(self.coord)
+            self.revealed = True
+            if self.flagged:
+                self.flagged = 0
+            self.clue = self.adjacent_IEDs()
+            self.create_actual()
+            self.box.pack_forget()
+            # Check if it's safe and in a winning condition to highlight mines
+            if safe or over_and_clear:
+                self.lbl.config(bg='lightblue')
+
+            # If the game is over, skip updating the hinter.
+            if self.is_IED and over_and_clear is None:
+                self.clueshelper.guessed_flag(self.is_IED, safe=safe)
+
+        # pass the condition back to self.guess
+        return go_ahead
 
     def omni_click(self, evt, ignore=False):
-        if self.field.is_over:
-            return
-        w, h = evt.widget.winfo_geometry().replace('+', 'x').split('x')[:2]
-        if evt.x in range(int(w)) and evt.y in range(int(h)):
-            if (evt.num == 1 and evt.state & MOUSE_RIGHT) or (evt.num == 3 and evt.state & MOUSE_LEFT):
-                self.both_release()
-            elif evt.num == 1:
-                self.left_release()
-            elif evt.num == 2:
-                if self.flagged:
-                    self.guess(safe=self.flagged == self.is_IED)
-            elif evt.num == 3 and not ignore:
-                self.right_release()
+        ''' Main handler for clicking, branches off to sub methods... '''
+        if not self.field.is_over:
+            # Make sure the cursor is within the same block, allow users to change their mind.
+            w, h = evt.widget.winfo_geometry().replace('+', 'x').split('x')[:2]
+            if evt.x in range(int(w)) and evt.y in range(int(h)):
+                # Both buttons are pressed
+                if (evt.num == 1 and evt.state & MOUSE_RIGHT) or (evt.num == 3 and evt.state & MOUSE_LEFT):
+                    self.both_release()
+                elif evt.num == 1:
+                    self.left_release()
+                # Mid click for special mode
+                elif evt.num == 2:
+                    if self.flagged:
+                        self.guess(safe=self.flagged == self.is_IED)
+                elif evt.num == 3 and not ignore:
+                    self.right_release()
 
     def left_release(self):
         self.guess()
@@ -767,10 +778,6 @@ class NumbTracker:
     def lock(self):
         self.lock_count += 1
 
-    def __iter__(self):
-        return (sum((self.blew_count, self.lock_count, self.flag_count)[:i]) for i in range(1, 4))
-
-
 class NumbHelper(tk.Frame):
     ''' Helper Frame object to help track flags '''
     FLAG_ACTIVE = 'forestgreen'
@@ -814,6 +821,8 @@ class NumbHelper(tk.Frame):
                 text=NEG_CIRCLED_NUMBERS.get(num),
                 font=('tkDefaultFont', 12),
                 compound='c',
+                width=16,
+                height=12,
                 fg=NumbHelper.FLAG_INACTIVE
             ) for num in range(1, 11) for count in range(self.nrows if num < 10 else self.nrows * 4)
         }
@@ -830,18 +839,26 @@ class NumbHelper(tk.Frame):
             tracker = self.trackers.get(num)
             tracker.change(change)
             cfg = NumbHelper.CONFIGS.get(change)
-            if tracker.flag_count == tracker.maximum + cfg.max_check:
+            if tracker.total == tracker.maximum + cfg.max_check:
                 self.update_batch(num, cfg.over_state)
             elif not tracker.over:
-                lbl = self.lbls.get((num, tracker.flag_count + cfg.tracked_num))
+                lbl = self.lbls.get((num, tracker.total + cfg.tracked_num))
                 lbl.config(fg=cfg.flag_state)
 
-    def guessed_flag(self, num, safe=False):
-        if safe:
+    def guessed_flag(self, num, safe=None):
+        if self.exists:
             tracker = self.trackers.get(num)
-            tracker.lock()
-        
-
+            tracker.lock() if safe else tracker.blew()
+            revealed = tracker.blew_count + tracker.lock_count
+            lbl = self.lbls.get((num, revealed))
+            lbl.config(fg=NumbHelper.FLAG_LOCK if safe else NumbHelper.FLAG_BLEW)
+            if tracker.flag_count > 0:
+                for flag in range(tracker.flag_count):
+                    try:
+                        self.lbls.get((num, revealed + flag + 1)).config(fg=NumbHelper.FLAG_ACTIVE)
+                    except AttributeError:
+                        self.update_batch(num, NumbHelper.FLAG_OVER)
+                        break
             
     def update_batch(self, num, colour):
         for i in range(self.nrows * (4 if num >= 10 else 1)):
