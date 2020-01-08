@@ -12,10 +12,8 @@ For Python version below 3.6, just change the f-strings and it should work.
 4.) UI enhancements, e.g. image instead of text, alignments, etc.  
 5.) ... add comments... (in progress)  
 6.) Highscores  
-7.) Options to disable hints  
-8.) Balancing on number mode (more tests...)  
-9.) Confirm numbered clicks to lock  
-10.) Add help popup to explain bindings, game modes, etc.
+7.) Balancing on number mode (more tests...)  
+8.) Add help popup to explain bindings, game modes, etc.
 
 # Cleared TODOs:
 1.) Identify false flags  
@@ -23,8 +21,14 @@ For Python version below 3.6, just change the f-strings and it should work.
 3.) Some UI enhancement to update the visual  
 4.) Blackjack-ish mode!  
 5.) Added number hints with mouse over  
-6.) Added number hints for flags
+6.) Added number hints for flags  
+7.) Options to disable hints  
+8.) Confirm numbered flags to lock (will fail if flagged value not match)  
+9.) Added handling for updating hinter with locked/hit numbers as well
+
+# Fixes:
+1.) Fixed a potential issue if first click is flagged it would still trigger a `set_IEDs`
 
 # Other features to consider
-1.) Blackjack (kinda)  
+1.) Blackjack (Somewhat different from original intent, but it's there!)  
 2.) And hookers
