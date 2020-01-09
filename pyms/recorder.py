@@ -1,4 +1,4 @@
-from .constants import MODE_CONFIG
+from .constants import MODE_CONFIG, MODES
 import os
 import pickle
 
@@ -17,18 +17,19 @@ class Category:
     pass
 
 class Record:
-    def __init__(self, time_elapsed, mode: MODE_CONFIG):
-        # self.time_elapsed = time
-        # self.mode = mode
-        # self.x = x
-        # self.y = y
-        # self.IEDs = IEDs
-        # self.hits = hits
-        pass
+    def __init__(self, mode: MODE_CONFIG, time_elapsed, IEDs, hits=0, blew=0):
+        self.mode = mode
+        self.time_elapsed = time_elapsed
+        self.IEDs = IEDs
+        self.hits = hits
+        self.blew = blew
     
     def rating(self):
-        # rate = self.IEDs / (self.x * self.y)
-        pass
+        rate = self.mode.amount / (self.mode.x * self.mode.y)
+
+    def normalize_amount(self):
+        if self.mode.special:
+            self.mode.amount
     
     def clear_rate(self):
         pass
