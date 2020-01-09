@@ -2,8 +2,8 @@
 Minesweeper... on native Python (using `tkinter`)
 
 # Requirements
-Just native Python 3.6+ will do.  
-For Python version below 3.6, just change the f-strings and it should work.
+Just native Python 3 should do.
+Tested on Python 3.6+, but should work on lower versions as well.
 
 # TODOs (in no particular order)
 1.) Custom mode to select grid size and rate/amount  
@@ -24,7 +24,8 @@ For Python version below 3.6, just change the f-strings and it should work.
 6.) Added number hints for flags  
 7.) Options to disable hints  
 8.) Confirm numbered flags to lock (will fail if flagged value not match)  
-9.) Added handling for updating hinter with locked/hit numbers as well
+9.) Added handling for updating hinter with locked/hit numbers as well  
+10.) Changed f-strings to `format` to support lower versions.
 
 # Fixes:
 1.) Fixed a potential issue if first click is flagged it would still trigger a `set_IEDs`

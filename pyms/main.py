@@ -1,3 +1,4 @@
+''' Main script that can also run as a module with -m '''
 from random import shuffle, randrange
 from tkinter import messagebox
 from time import time
@@ -5,7 +6,7 @@ from . import constants as c
 
 import tkinter as tk
 
-class myIntVar(tk.IntVar):
+class MyIntVar(tk.IntVar):
     ''' Subclassing the IntVar to add convenience methods '''
     def increase(self, num=1):
         self.change(num)
@@ -18,6 +19,9 @@ class myIntVar(tk.IntVar):
 
 class GUI(tk.Tk):
     ''' Main tkinter class that hosts window configs '''
+    # pylint: disable=too-many-instance-attributes
+    # Suppressing the pylint warning as there are a bunch of frames to consider
+    # and would be easier accessed by name instead of dict
 
     def __init__(self):
         super().__init__()
@@ -150,7 +154,7 @@ class GUI(tk.Tk):
         self.lbl_IEDs = tk.Label(self.frm_IEDs, text='0')
         self.frm_blew = tk.LabelFrame(self.frm_status, text='Hits:')
         self.lbl_blew = tk.Label(self.frm_blew, text='0') 
-        
+
         # Grid management for tk... ugh
         self.frm_status.grid(row=0, column=0, sticky=tk.NSEW)
         for idx, weight in enumerate((6, 2, 3, 3)):
@@ -243,7 +247,7 @@ class Timer:
         ''' Format and set the string variable to the time '''
         current = time() - self.start_time
         h, m, s = int(current // 3600), int(current % 3600 // 60), int(current % 60)
-        self.string.set(f'{h:02}:{m:02}:{s:02}')
+        self.string.set('{h:02}:{m:02}:{s:02}'.format(h=h, m=m, s=s))
 
     def stop(self):
         self.end_time = time() - self.start_time
@@ -253,6 +257,10 @@ class Timer:
 
 class Field:
     ''' The field that contains all the Map elements and handle the events '''
+    # pylint: disable=too-many-instance-attributes
+    # Suppress pylint warning for now
+    # Want to see if some attributes can be handled as classes
+
     def __init__(self, parent:GUI, mode:c.MODE_CONFIG=c.MODES.get(0)):
         self.parent = parent
         self.mode = mode
@@ -265,7 +273,7 @@ class Field:
             self.IED_count = self.mode.amount
         else:
             self.IED_count = int(self.mode.x * self.mode.y * self.mode.rate)
-        self.IED_current = myIntVar(value=self.IED_count)
+        self.IED_current = MyIntVar(value=self.IED_count)
         self.IEDs = set()
         self.map_cleared = 0
         self.map = {
@@ -277,23 +285,29 @@ class Field:
             self.allow_threshold(self.parent.options.allow_hits.get())
         else:
             self.IED_threshold = 0
-        self.IED_blew = myIntVar(value=0)
+        self.IED_blew = MyIntVar(value=0)
         self.map_goal = self.mode.x * self.mode.y - self.IED_count
 
     def allow_threshold(self, state=True):
+        ''' Enable or disable hits threshold '''
         self.IED_threshold = 21 if state else 0
 
     def build(self):
+        ''' Build the frame and map elements '''
         for elem in self.map.values():
             elem.build_surprise_box()
         self.frame.pack_propagate(False)
         self.frame.pack()
 
     def set_IEDs(self, current_coord: tuple = None):
+        ''' Initial planting of IEDs on first click '''
+        # Randomize coord and add set if it's not the current location
         while len(self.IEDs) < self.IED_count:
             coord = (randrange(self.mode.x), randrange(self.mode.y))
             if coord != current_coord:
                 self.IEDs.add(coord)
+        
+        # Use card values if Hybrid mode, else IEDs are assigned default value of 1 (True)
         if self.mode.special:
             cards = list(range(1, 10)) + [10] * 4
             cards = cards * (self.mode.amount // 13)
@@ -303,9 +317,12 @@ class Field:
         else:
             for IED in self.IEDs:
                 self.map.get(IED).is_IED = 1
+
+        # Start the timer once everything is set up
         self.parent.timer.start()
 
     def expose_IEDs(self, clear, show_false_flags=False):
+        ''' Reveal unflagged IEDs and false flags when over '''
         for IED in self.IEDs:
             self.map[IED].reveal(over_and_clear=clear)
         if show_false_flags:
@@ -313,8 +330,8 @@ class Field:
                 if elem.flagged:
                     elem.check_false_flag()
 
-    def check_threshold(self, elem): 
-        ''' Check if threshold is met '''
+    def check_threshold(self, elem):
+        ''' Check if threshold is exceeded '''
         self.IED_current.decrease()
         self.IED_blew.increase(elem.is_IED)
         current_blew = self.IED_blew.get()
@@ -343,10 +360,10 @@ class Field:
             if self.IED_threshold > 0:
                 hit = self.IED_blew.get()
                 if hit:
-                    congrats += f'\n... But you revealed {hit} point{"s" if hit > 1 else ""}.\nAim for 0 next time!'
+                    congrats += '\n... But you revealed {hit} point{plural}.\nAim for 0 next time!'.format(hit=hit, plural="s" if hit > 1 else "")
                 else:
-                    congrats += f'\nAnd you managed to remain clear without revealing any mines.\nCongrats!'
-            messagebox.showinfo('Awesome!', congrats, anchor=tk.CENTER)
+                    congrats += '\nAnd you managed to remain clear without revealing any mines.\nCongrats!'
+            messagebox.showinfo('Awesome!', congrats)
 
     def destroy(self):
         self.frame.destroy()
@@ -358,7 +375,7 @@ def gradient_colour(main:int, increm=0x080808, n=8, darken=True, as_string=False
         except ValueError:
             return []
     if as_string:
-        colours = [f'#{main + (-i if darken else i) * increm:06x}' for i in range(n)]
+        colours = ['#{:06x}'.format(main + (-i if darken else i) * increm) for i in range(n)]
     else:
         colours = [main + (-i if darken else i) * increm for i in range(n)]
     return colours
@@ -398,7 +415,7 @@ class MapElem:
     @property
     def flagged(self):
         return self.__flagged
-    
+
     @flagged.setter
     def flagged(self, num):
         for i, check in enumerate((self.__flagged, num)):
@@ -410,6 +427,10 @@ class MapElem:
         self.__flagged = num
 
     def get_flag_config(self, num=None):
+        ''' Config how the flag should display '''
+        # pylint: disable=unused-argument
+        # The num argument is there to be consistent with the child class that relies on the same flag method.
+        # Eventually will want to restructure this properly
         return {'text': '⚑'}
 
     def flag(self, num=None):
@@ -434,6 +455,7 @@ class MapElem:
         widget.pack()
 
     def build_surprise_box(self):
+        ''' Build the concealer button '''
         self.box = Surprise(self)
         self.build(self.box)
         return self.box
@@ -473,6 +495,8 @@ class MapElem:
                 self.lbl.config(text=self.clue)
 
     def label_actual(self):
+        ''' Set up the underlayer label '''
+        # This is separated so it's easier to manage the subclass
         if self.is_IED:
             actual = self.get_IED_config()
         else:
@@ -486,6 +510,7 @@ class MapElem:
         return lbl
 
     def create_actual(self):
+        ''' Create the underlayer label '''
         self.lbl = self.label_actual()
         if self.is_IED == 0:
             self.lbl.bind('<ButtonRelease-1>', self.omni_click)
@@ -500,7 +525,7 @@ class MapElem:
             if self.clue == 0 and not self.is_IED:
                 for adj in self.adjacents:
                     adj.guess()
-            
+
             # Unless it's confirmed safe (flag = IED), do the checks.
             if not safe:
                 if self.is_IED:
@@ -554,16 +579,19 @@ class MapElem:
                     self.right_release()
 
     def left_release(self):
+        ''' Take a guess and remove the concealer '''
         self.guess()
 
     def right_release(self):
+        ''' Flag the concealer '''
         ### still trying to figure out if right release can be separated from right click for fast flagging
         # unheld = (evt.state & c.MOUSE_LEFT > 0) if evt else True
         # if not self.revealed and unheld:
         if not self.revealed:
             self.flag()
 
-    def both_release(self, *evt):
+    def both_release(self):
+        ''' Open adjacent blocks '''
         if self.adjacent_flags() == self.clue and self.revealed:
             self.guess()
             for adj in self.adjacents:
@@ -613,8 +641,8 @@ class NumbedMapElem(MapElem):
         if final:
             config.update({'fg': 'white', 'bg': 'red3'})
         return config
-    
-    def get_flag_config(self, num):
+
+    def get_flag_config(self, num=None):
         return {
             'text': c.CIRCLED_NUMBERS.get(num, ' '),
             'fg': NumbedMapElem.val_colours.get(num),
@@ -685,18 +713,20 @@ class NumbedSurprise(Surprise):
             self.bind(s, lambda e, x=i: self.flag(x))
             self.bind(s.upper(), lambda e, x=i: self.flag(x))
 
-class HintBar(tk.Frame):
+class HintBar:
     ''' Hint bar to help users calculate remaining flags '''
-    
+
     def __init__(self, gui: GUI, parent_frame):
         self.gui = gui
+        self.frame = None
         self.parent_frame = parent_frame
         self.exists = False    
-    
+
     def build(self):
+        ''' build the HintBar frame '''
         if self.exists:
             self.destroy()
-        super().__init__(master=self.parent_frame)
+        self.frame = tk.Frame(master=self.parent_frame)
         self.hints = {
             k: self.create_inner_frame(k)
             for k in ('Total', 'Flags/Hits', 'Remaining')
@@ -705,11 +735,15 @@ class HintBar(tk.Frame):
             hint.frame.grid(row=0, column=i, sticky=tk.NSEW)
             hint.label.pack(fill=tk.BOTH, expand=True)
         for i in range(3):
-            self.columnconfigure(index=i, weight=1)
+            self.frame.columnconfigure(index=i, weight=1)
         self.exists = True
 
     def show(self, state):
-        self.grid(row=0, column=0, sticky=tk.NSEW) if state else self.grid_remove()
+        ''' Toggler to show or hide the frame '''
+        if state:
+            self.frame.grid(row=0, column=0, sticky=tk.NSEW)
+        else:
+            self.frame.grid_remove()
 
     def create_inner_frame(self, ctype):
         def validate(hinter):
@@ -717,14 +751,14 @@ class HintBar(tk.Frame):
                 hinter.label.config(bg='yellow')
             else:
                 hinter.label.config(bg='SystemButtonFace')
-        frame = tk.LabelFrame(master=self, text=f'{ctype}:')
+        frame = tk.LabelFrame(master=self.frame, text='{}:'.format(ctype))
         counter = tk.IntVar()
         label = tk.Label(master=frame, textvariable=counter)
         hinter = c.HINT(frame, label, counter)
         counter.trace('w', lambda *args: validate(hinter))
         return hinter
 
-    def update(self, hinter:NumbedMapElem):
+    def update(self, hinter: NumbedMapElem):
         if not self.gui.field.is_over:
             total = hinter.clue
             flags_hits = hinter.adjacent_flags()
@@ -740,7 +774,7 @@ class HintBar(tk.Frame):
 
     def destroy(self):
         self.exists = False
-        super().destroy()
+        self.frame.destroy()
 
 class NumbTracker:
     def __init__(self, maximum):
@@ -757,15 +791,12 @@ class NumbTracker:
     def over(self):
         return self.total > self.maximum
 
-    # def cumsum(self, n=3):
-    #     return sum((self.blew_count, self.lock_count, self.flag_count)[:n])
-
     def change(self, change=1):
         self.flag_count = max(0, self.flag_count + change)
 
     def blew(self):
         self.blew_count += 1
-    
+
     def lock(self):
         self.lock_count += 1
 

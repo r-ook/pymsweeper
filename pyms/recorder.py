@@ -1,3 +1,4 @@
+''' Record classes '''
 from .constants import MODE_CONFIG, MODES
 import os
 import pickle
