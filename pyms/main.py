@@ -139,7 +139,7 @@ class GUI(tk.Tk):
             self.frm_status,
             image=self.empty_image,
             command=lambda: self.build_field(c.MODES.get(self.var_mode.get())),
-            font=('tkDefaultFont', 18, 'bold'),
+            # font=('tkDefaultFont', 18, 'bold'),
             width=32,
             height=32,
             compound='c',
@@ -196,7 +196,8 @@ class GUI(tk.Tk):
         self.btn_main.config(
             text=status.icon,
             fg=status.fg,
-            bg=status.bg
+            bg=status.bg,
+            font=status.font
         )
 
     def run(self):

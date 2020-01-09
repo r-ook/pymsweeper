@@ -1,4 +1,4 @@
-from . import constants as c
+from .constants import MODE_CONFIG
 import os
 import pickle
 
@@ -17,7 +17,7 @@ class Category:
     pass
 
 class Record:
-    def __init__(self, time_elapsed, mode):
+    def __init__(self, time_elapsed, mode: MODE_CONFIG):
         # self.time_elapsed = time
         # self.mode = mode
         # self.x = x

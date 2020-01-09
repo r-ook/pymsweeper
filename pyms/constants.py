@@ -6,11 +6,11 @@ MOUSE_MID = 2 ** 9
 MOUSE_RIGHT = 2 ** 10
 
 # Status constants
-STATUS = namedtuple('STATUS', 'icon fg bg')
-STATUS_OKAY = STATUS('☺', 'black', 'gold')
-STATUS_WOAH = STATUS('☹', 'black', 'goldenrod')
-STATUS_BOOM = STATUS('☠', 'white', 'red3')
-STATUS_YEAH = STATUS('✌', 'white', 'limegreen')
+STATUS = namedtuple('STATUS', 'icon fg bg font')
+STATUS_OKAY = STATUS('☺', 'black', 'gold', ('tkDefaultFont', 18, 'bold'))
+STATUS_WOAH = STATUS('☹', 'black', 'orange', ('tkDefaultFont', 24, 'bold'))
+STATUS_BOOM = STATUS('☠', 'white', 'red3', ('tkDefaultFont', 18, 'bold'))
+STATUS_YEAH = STATUS('✌', 'white', 'limegreen', ('tkDefaultFont', 18, 'bold'))
 
 # Mode constants
 MODE_CONFIG = namedtuple('MODE_CONFIG', 'name x y rate amount special')
