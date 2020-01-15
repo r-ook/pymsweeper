@@ -41,4 +41,21 @@ HINT = namedtuple('Hint', 'frame label counter')
 OPTIONS = namedtuple('Options', 'sound mouseover tracker allow_hits')
 
 # Record data to support record class
-RECORD = namedtuple('Record', 'mode options seed time_val time_str guesses hits blew')
+RECORD = namedtuple('Record',
+            '''
+            mode_val
+            mode_name
+            amount
+            x
+            y
+            mouseover
+            tracker
+            allow_hits
+            seed
+            time_val
+            time_str
+            guesses
+            hits
+            blew
+            '''
+        )
