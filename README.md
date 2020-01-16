@@ -1,6 +1,6 @@
-# pysweeper
+# `pysweeper`
 Minesweeper... on native Python (using `tkinter`)  
-Note: IEDs = Mines
+^(Note: *IEDs* == *Mines*)
 
 # Requirements
 Just native Python 3.5+ should do (due to type hinting)
@@ -18,27 +18,25 @@ There are two main modes, each comes with three sub levels:
 ## Normal mode
 Just like typical minesweeper:
 
-1. Left click to any cell,  
-2. Right click (or keyboard `1`) to flag cell,  
-3. Both click to reveal adjacent 8 cells if the correct flagged.  
+1. Left Click (<kbd>Mouse1</kbd>) to any cell,  
+2. Right Click (<kbd>Mouse3</kbd>) (or keyboard <kbd>1</kbd>) to flag cell,  
+3. Left + Right Click(<kbd>Mouse1</kbd> + <kbd>Mouse3</kbd>) to reveal adjacent 8 cells if the correct flagged.  
 
 ## Blackjack mode
 Changes from Normal mode:
 
-1. Mid clicking mouse wheel (`Mouse2`) will allow users to confirm if the flagged value is correct.  
-    - Read on for more info
+1. Mid Click mouse wheel (<kbd>Mouse2</kbd>) will allow users to confirm if the flagged value is correct (Read on for more info).  
+2. Right click to cycle through flags of `0`-`10`.  
+3. Keyboard bindings: The 3x4 area of <kbd>123QWEASDZXC</kbd> are mapped accordingly to the card values, i.e.:
 
-2. Right click to cycle through flags of 0-10.  
-3. Keyboard bindings: The 3x4 area of 123qweasdzxc are mapped accordingly to the card values, i.e.:
+    <kbd>1</kbd> = `1`,  <kbd>2</kbd> = `2`,  <kbd>3</kbd> = `3`
+    <kbd>Q</kbd> = `4`,  <kbd>W</kbd> = `5`,  <kbd>E</kbd> = `6`
+    <kbd>A</kbd> = `7`,  <kbd>S</kbd> = `8`,  <kbd>D</kbd> = `9`
+    <kbd>Z</kbd> = `10`, <kbd>X</kbd> = `10`, <kbd>C</kbd> = `10`
 
-    1 = 1, 2 = 2, 3 = 3
-    q = 4, w = 5, e = 6
-    a = 7, s = 8, d = 9
-    z, x, c = 10
+Numpads and numbers are mapped as well, with <kbd>4</kbd> = `4`, <kbd>5</kbd> = `5`... and <kbd>0</kbd> = `10`.
 
-Numpads and numbers are mapped as well, with 1 = 1, 2 = 2... and 0 = 10.
-
-4. Each mine is now assigned a value from 1-10, much like cards in blackjack.  
+4. Each mine is now assigned a value from `1-10`, much like cards in blackjack.  
 5. The clues shown are the `sum` of the card values in adjacent cells.
 
 For example, provided `□` represents empty cells, and `#`s represent card values:
@@ -51,13 +49,13 @@ For example, provided `□` represents empty cells, and `#`s represent card valu
 - clue `b` will show as `15`  
 - clue `c` will show as `3`
 
-6. Allow `hits` (revealing of a valued mine) of up to `21` total points, depending on the `Hits` option selected:  
+6. Allow *Hits* (revealing of a valued mine) of up to `21` total points, depending on the *Hits* option selected:  
     - **Disallow hits**: revealing *any* mine will be game over, much like normal mode.  
-    - **Allow Hits on guesses only**: use mid-click on unopened cells to guess if the flagged value is correct.  
-        - if flag value matches, the guess is safe (marked blue)  
-        - if flag value doesn't match, but is a mine, it counts as a hit (follows any hits condition, see next section)  
-        - if cell is not a mine, immediate game over.  
-    - **Allow Hits on any clicks**: left clicks on mine will count as a hit.  If a mid-click is employed, the above logic follows.
+    - **Allow Hits on guesses only**: use mid-click (<kbd>Mouse2</kbd>) on unopened cells to guess if the flagged value is correct.  
+        - If flag value matches, the guess is safe (marked blue)  
+        - If flag value doesn't match, but is a mine, it counts as a hit (follows any hits condition, see next section)  
+        - If cell is not a mine, immediate game over.  
+    - **Allow Hits on any clicks**: revealing any mine will count as a hit.  If mid-click was used, the above logic follows.
 
 The more restrictive the mode, with less gueses and less hits, the better the highscore.
 
@@ -92,7 +90,3 @@ The more restrictive the mode, with less gueses and less hits, the better the hi
 ## Fixes:
 1. Fixed a potential issue if first click is flagged it would still trigger a `set_IEDs`.  
 2. Fixed an issue with `set_IEDs` being triggered more than once which interferes with seeds.  
-
-# Other features to consider
-1. Blackjack (Somewhat different from original intent, but it's there!)  
-2. And hookers (I have no idea)

@@ -32,30 +32,38 @@ CIRCLED_NUMBERS = {i + 1: chr(0x2460 + i) for i in range(10)}
 NEG_CIRCLED_NUMBERS = {i + 1: chr(0x278A + i) for i in range(10)}
 
 # Numbered clues helper config
-TRACKER_CONFIG = namedtuple('TrackerConfig', 'max_check over_state tracked_num flag_state')
+TRACKER_CONFIG = namedtuple('TRACKER_CONFIG', 'max_check over_state tracked_num flag_state')
 
 # Mouse over hint config
-HINT = namedtuple('Hint', 'frame label counter')
+HINT = namedtuple('HINT', 'frame label counter')
 
 # GUI Options
-OPTIONS = namedtuple('Options', 'sound mouseover tracker allow_hits')
+OPTIONS = namedtuple('OPTIONS', 'sound mouseover tracker allow_hits')
 
 # Record data to support record class
-RECORD = namedtuple('Record',
+RECORD = namedtuple('RECORD',
             '''
-            mode_val
-            mode_name
-            amount
-            x
-            y
-            mouseover
-            tracker
-            allow_hits
-            seed
             time_val
             time_str
+            seed
             guesses
             hits
             blew
+            mouseover
+            tracker
+            allow_hits
             '''
         )
+
+# Record data to show on highschore
+# size (x by y) (this is part of category)
+# amount (part of category)
+# time_str
+# seed
+# # guesses
+# # hits
+# # blew
+# # mouseover
+# # tracker
+# # allow_hits
+# # score (rating)
