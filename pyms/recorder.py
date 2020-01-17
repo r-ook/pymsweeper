@@ -2,9 +2,20 @@
 import os
 import pickle
 import tkinter as tk
+
+from tkinter.messagebox import askyesno
+
+# testing
+# TODO remove testing functions and attributes
 from random import randrange
 
 from .constants import RECORD, MODES, MODE_CONFIG
+
+def get_mode(mode):
+    ''' Convert to MODE_CONFIG if passed an int '''
+    if isinstance(mode, int):
+        mode = MODES.get(mode)
+    return mode
 
 class RecordKeeper:
     default_filepath = os.path.dirname(os.path.abspath(__file__))
@@ -13,6 +24,7 @@ class RecordKeeper:
     @staticmethod
     def mode_str(mode:MODE_CONFIG):
         ''' Return the mode str '''
+        mode = get_mode(mode)
         return '{special}: {name} ({amount} IEDs @ {x}x{y})'.format(
             name=mode.name,
             special='Blackjack' if mode.special else 'Normal',
@@ -26,84 +38,132 @@ class RecordKeeper:
         self._max = records_to_keep
         if not self.load():
             # TODO this needs to be changed later
-            self.records = {RecordKeeper.mode_str(mode): [TestRecordEntry(val, RECORD(randrange(50), randrange(50), randrange(10), randrange(21), randrange(5), randrange(1), randrange(1), randrange(1), randrange(100))) for _ in range(self._max)] for val, mode in MODES.items()}
-        self.record_vars = [RecordTkVar() for _ in range(self._max)]
-        self.show()
+            # self.records = {RecordKeeper.mode_str(mode): [self.__test_entry(val) for _ in range(self._max)] for val, mode in MODES.items()}
+            self.init_records()
+        self.var_records = [RecordTkVar() for _ in range(self._max)]
 
-    def show(self):
+    def init_records(self):
+        ''' Initialize all records '''
+        # Perhaps allow partially clearing by mode
+        # If allow user to trigger, will need to import dialog.
+        self.records = {RecordKeeper.mode_str(mode): [] for val, mode in MODES.items()}
+
+    def __test_entry(self, val):
+        entry = TestRecordEntry(val,
+            RECORD(
+                randrange(2**15),
+                randrange(2**31),
+                '{:02}:{:02}:{:02}'.format(*(randrange(99),)*3),
+                randrange(30),
+                randrange(21),
+                randrange(9),
+                randrange(1),
+                randrange(1),
+                randrange(2)
+            )
+        )
+        return entry
+
+    def show(self, current_mode=None):
         ''' Build the main window contents '''
-        # build the opt_cat menu
-        window = tk.Toplevel(master=self.master, padx=5, pady=5)
-        window.title('Highscores')
-        window.focus_force()
-        window.grab_set()
+        # build the opt_mode menu
+        self.window = tk.Toplevel(master=self.master, padx=5, pady=5)
+        self.window.title('Highscores')
+        self.window.wm_protocol('WM_DELETE_WINDOW', self.exit)
+        self.window.focus_force()
+        self.window.grab_set()
         self.var_mode = tk.StringVar()
         self.var_mode.trace('w', self._update_entries)
-        opt_cat = tk.OptionMenu(
-            window,
+        opt_mode = tk.OptionMenu(
+            self.window,
             self.var_mode,
             *self.records.keys(),
         )
-        opt_cat.config(relief=tk.RIDGE)
-        lbl_cat = tk.Label(master=window, text="Mode: ")
-        lbl_cat.grid(row=0, column=0)
-        opt_cat.grid(row=0, column=1)
+        opt_mode.config(relief=tk.RIDGE)
+        lbl_mode = tk.Label(master=self.window, text="Mode: ")
+        self.window.grid_columnconfigure(index=0, weight=1)
+        self.window.grid_columnconfigure(index=1, weight=2)
+        lbl_mode.grid(row=0, column=0, sticky=tk.E)
+        opt_mode.grid(row=0, column=1, sticky=tk.W)
 
         # build the records frame
-        self.frm_main = tk.Frame(master=window, padx=5, pady=5)
+        self.frm_main = tk.Frame(master=self.window, padx=5, pady=5)
         self.frm_main.grid(row=1, column=0, columnspan=2)
         self.build_records()
+        btn_clear = tk.Button(master=self.window, text='CLEAR ALL RECORDS', command=self.clear_records)
+        btn_clear.grid(row=2, column=0, columnspan=2)
+        # self.__build_test_buttons()
 
         # set the default value
-        # TODO: Use current mode to show
-        self.var_mode.set(next(iter(self.records.keys())))
+        if current_mode:
+            self.var_mode.set(RecordKeeper.mode_str(current_mode))
+        else:
+            # fall back scenario - though, shouldn't reach this point unless testing.
+            self.var_mode.set(next(iter(self.records.keys())))
 
-    # def _build_header(self):
-    #     frm = self.frm_main
-    #     headers = ['Rank', 'Time', 'Seed', '']
-    #     for text in headers:
-    #         pass
+    def __build_test_buttons(self):
+        ''' buttons for testing '''
+        btn_save = tk.Button(master=self.window, text='SAVE', command=self.save)
+        btn_load = tk.Button(master=self.window, text='LOAD', command=self.load)
+        btn_clear = tk.Button(master=self.window, text='CLEAR ALL RECORDS', command=self.clear_records)
+        btn_save.grid(row=2, column=0)
+        btn_load.grid(row=2, column=1)
+        btn_clear.grid(row=2, column=2)
 
-    def add_record(self, mode_val, data):
+    def exit(self):
+        ''' Save before closing window '''
+        self.save()
+        self.window.destroy()
+
+    def clear_records(self):
+        proceed = askyesno('Clearing all records...',
+            'Are you sure you want to clear all records?\nThis CANNOT be undone.')
+        if proceed:
+            self.init_records()
+        self.var_mode.set(self.var_mode.get())  # trigger call back to refresh
+
+    def add_record(self, mode: MODE_CONFIG, data):
         ''' Add record to mode '''
-        records = self.records[RecordKeeper.mode_str(MODES.get(mode_val))]
-        records.append(RecordEntry(mode_val, data))
+        mode = get_mode(mode)
+        records = self.records[RecordKeeper.mode_str(mode)]
+        records.append(RecordEntry(mode, data))
         records.sort(key=lambda record: record.sort_key())
         records[:] = records[:self._max]
+        self.save()
 
     def build_records(self):    # pylint: disable=unused-argument
         ''' Build the individual records '''
-        # star argument to allow trace to use this callback
-        # for child in self.frm_main.winfo_children():
-        #     child.destroy()
-        
-        # for entry in self.records.get(self.var_mode.get()):
-        #     # record_entry = tk.Label(master=self.frm_main, text=entry)        
-        #     # record_entry.pack()
-        #     self._build_entry(entry)
         frm = self.frm_main
-        headers = ['Rank', 'Seed', 'Time', 
-            '?', '!', '✨',
-            '➕', '⚑', '♠',
-            'Rating']
+        headers = ['Rank', 'Seed', 'Time',
+            '❓', '❗', '✨',
+            'Σ Hints', '⚑ Track', '☄ Hits',
+            '♥ Rating']
+        stickys = [tk.W] + [tk.E] * 9
+        justifys = [tk.LEFT] + [tk.RIGHT] * 9
+        widths = [5, 10, 8] + [5] * 6 + [8]
         for row in range(self._max):
             if row == 0:
-                for i, header in enumerate(headers):
-                    tk.Label(frm, text=header, padx=5).grid(row=row, column=i)
+                for col, header in enumerate(headers):
+                    tk.Label(frm, text=header, justify=justifys[col]).grid(row=row, column=col, sticky=stickys[col])
             else:
                 for col in range(len(headers)):
                     if col == 0:
-                        tk.Label(frm, text=row).grid(row=row, column=col)
+                        widget = tk.Label(frm, text=row)
                     else:
-                        tk.Entry(frm, textvariable=self.record_vars[row-1][col-1], state='readonly', relief=tk.FLAT, width=5).grid(row=row, column=col)
+                        widget = tk.Entry(master=frm,
+                            textvariable=self.var_records[row-1][col-1],
+                            justify=justifys[col], state='readonly',
+                            relief=tk.FLAT, width=widths[col]
+                        )
+                    widget.grid(row=row, column=col, sticky=stickys[col])
 
     def _update_entries(self, *args):
-        records = self.records.get(self.var_mode.get())
-        for i, record in enumerate(records):
-            self.record_vars[i].update(record)
-
-    def _build_entry(self, entry):
-        pass
+        ''' Update the record variables with the current mode records '''
+        records = iter(self.records.get(self.var_mode.get(), []))
+        # for i, record in enumerate(records):
+        #     self.var_records[i].update(record)
+        for var in self.var_records:
+            var.update(next(records, None))
 
     def save(self, filename=None):
         if not filename:
@@ -123,17 +183,23 @@ class RecordKeeper:
             print('File not found, assuming empty records...')
         except pickle.UnpicklingError:
             print('Pickle done goofed, need some troubleshooting...')
-        except Exception as e:      # pylint: disable=broad-except
-            # suppressing broad-except for now, will test to see what exceptions can be expected
+        except Exception as e:      # pylint: disable=broad-except,invalid-name
+            # suppressing pylint for now, will test to see what exceptions can be expected
             print('Not sure what went wrong, why not take a look:\n{e}'.format(e=e))
         return _is_loaded
 
 
 class RecordEntry:
-    def __init__(self, mode_val: int, data: RECORD):
+    '''
+    RecordEntry class to manage additional functions from RECORD data
+    
+    Attributes:
+    rating      - provide a rating derived from the RECORD data
+    sort_key()  - provide a ranked index for sorting.
+    '''    
+    def __init__(self, mode: MODE_CONFIG, data: RECORD):
         self.data = data
-        self.mode = MODES.get(mode_val)
-        # self.diff_rate = self.data.amount / (self.data.x * self.data.y)
+        self.mode = get_mode(mode)
 
     @property
     def rating(self) -> float:
@@ -143,13 +209,16 @@ class RecordEntry:
         On normal, always return 1.0 as there's no differentiating factors
         '''
         if self.mode.special:
-            rate_guess = 1 - (self.data.guesses / self.mode.amount)
-            rate_hits = 1 - (self.data.hits / 21)
-            rate_blew = 1 - (self.data.blew / 3 * (self.mode.amount // 52 + 3))
+            # Invert rate, i.e. the lower the initial values, the better the rating
+            rate_guess = 1 - (self.data.IED_guesses / self.mode.amount)
+            rate_hits = 1 - (self.data.IED_hits / 21)
+            rate_blew = 1 - (self.data.IED_blew / 3 * (self.mode.amount // 52 + 3))
             # the maximum possible blew amount are 9, 12, and 15 per 26, 52, and 104.
-            mouseover = 1 - self.data.mouseover
-            tracker = 1 - self.data.tracker
-            hits_mode = (2 - self.data.allow_hits) / 2
+            mouseover = 1 - self.data.opt_mouseover
+            tracker = 1 - self.data.opt_tracker
+            hits_mode = 1 - (self.data.opt_allow_hits / 2)
+
+            # Calculate the weighted rating
             weighted_rates = [
                 (rate_guess, .2),
                 (rate_hits, .2),
@@ -160,6 +229,7 @@ class RecordEntry:
             ]
             return sum(r * w for r, w in weighted_rates)
         else:
+            # Normal mode doesn't have any of these attributes to consider
             return 1.0
 
     def sort_key(self):
@@ -180,14 +250,35 @@ class RecordEntry:
 class RecordTkVar:
     def __init__(self, n_data_to_show: int = 9):
         self.n = n_data_to_show
-        self._vars = [tk.StringVar(value='test') for _ in range(self.n)]
+        self._default = ''
+        self._vars = [tk.StringVar(value=self._default) for _ in range(self.n)]
+        self.formatter = {
+            'opt_mouseover': ['☐', '☑'],
+            'opt_tracker': ['☐', '☑'],
+            'opt_allow_hits': ['⛔', '☕', '♿'],
+        }
     
-    def update(self, record: RecordEntry):
-        for i, var in enumerate(self._vars):
-            if i < self.n:
-                var.set(record.data[i])
-            else:
-                var.set(record.rating)
+    def update(self, record: RecordEntry = None):
+        ''' Update the inner tkvars '''
+        if isinstance(record, RecordEntry):
+            fields = record.data._fields
+            for i, var in enumerate(self._vars):
+                if i < self.n - 1:
+                    if fields[i+1].startswith('opt'):
+                        # use special format
+                        var.set(self.formatter.get(fields[i+1])[record.data[i+1]])
+                    else:
+                        var.set(record.data[i+1])
+                else:
+                    # if the last record, show rating instead
+                    var.set('{:05.2f}%'.format(record.rating * 100)[:6])
+        else:
+            self.clear()
+    
+    def clear(self):
+        ''' Clear the inner tkvars '''
+        for var in self._vars:
+            var.set(self._default)
     
     def __getitem__(self, index):
         return self._vars[index]
@@ -203,6 +294,7 @@ def test():
     root = tk.Tk()
     def load():
         keeper = RecordKeeper(root)
+        keeper.show()
     btn = tk.Button(root, text='highscores', command=load)
     btn.pack()
     root.mainloop()

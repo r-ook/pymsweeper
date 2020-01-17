@@ -40,30 +40,17 @@ HINT = namedtuple('HINT', 'frame label counter')
 # GUI Options
 OPTIONS = namedtuple('OPTIONS', 'sound mouseover tracker allow_hits')
 
-# Record data to support record class
+# Record data to support record class (follows order to be shown in highscore)
 RECORD = namedtuple('RECORD',
             '''
             time_val
-            time_str
             seed
-            guesses
-            hits
-            blew
-            mouseover
-            tracker
-            allow_hits
+            time_str
+            IED_guesses
+            IED_hits
+            IED_blew
+            opt_mouseover
+            opt_tracker
+            opt_allow_hits
             '''
         )
-
-# Record data to show on highschore
-# size (x by y) (this is part of category)
-# amount (part of category)
-# time_str
-# seed
-# # guesses
-# # hits
-# # blew
-# # mouseover
-# # tracker
-# # allow_hits
-# # score (rating)

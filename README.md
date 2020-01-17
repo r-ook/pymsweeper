@@ -69,9 +69,9 @@ The more restrictive the mode, with less gueses and less hits, the better the hi
 3. UI tests to see how fonts/etc behave on different systems  
 4. UI enhancements, e.g. image instead of text, alignments, etc.  
 5. ... add comments... (in progress)  
-6. Highscores  
-7. Balancing on number mode (more tests...)  
-8. Add help popup to explain bindings, game modes, etc.
+6. Balancing on number mode (more tests...)  
+7. Add help popup to explain bindings, game modes, etc.
+8. Clean up testing artifacts
 
 ## Cleared TODOs:
 1. Identify false flags  
@@ -86,6 +86,8 @@ The more restrictive the mode, with less gueses and less hits, the better the hi
 10. Changed f-strings to `format` to support lower versions.  
 11. Added seeding - possibility to use seed to generate field.  
 12. Separated "hits" option to three - Disallow hits, allow hits on guesses, allow any hits.  
+13. Highscores, finally!
+14. Added more symbols for association
 
 ## Fixes:
 1. Fixed a potential issue if first click is flagged it would still trigger a `set_IEDs`.  

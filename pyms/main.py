@@ -1,5 +1,6 @@
 ''' Main script that can also run as a module with -m '''
 from . import constants as c
+from . import recorder
 from sys import maxsize
 from time import time
 from random import Random, randrange
@@ -33,14 +34,15 @@ class GUI(tk.Tk):
         self.empty_image = tk.PhotoImage(width=1, height=1)
 
         # Set up tk variables and create menus and timer
+        self.record_keeper = recorder.RecordKeeper(self)
         self.var_mode = tk.IntVar(value=3)
         self.options = c.OPTIONS(
-            *(tk.BooleanVar(name=opt_name) for opt_name in ('Warning Sound', 'Mouseover Hint', 'Flags Tracker')),
-            tk.IntVar(name='Hits')
+            *(tk.BooleanVar(name=opt_name) for opt_name in ('Warning Sound', 'Σ Mouseover Hint', '⚑ Flags Tracker')),
+            tk.IntVar(name='Hits Option')
         )
         for _bool, _opt in enumerate(self.options):
             _opt.set(min(1, int(_bool)))
-            _opt.trace('w', lambda *_, opt=_opt: self.option_callback(opt))
+            _opt.trace('w', lambda *_, idx=_bool: self.option_callback(idx))
         self.create_menus()
         self.taco_bell(self.options.sound.get())
         self.timer = Timer(self)
@@ -77,18 +79,31 @@ class GUI(tk.Tk):
         try:
             self.field.allow_threshold(state)
         except AttributeError:
+            # field doesn't exist yet
             pass
 
-    def option_callback(self, opt):
+    def option_callback(self, opt_index: int):
         ''' Callback option to call functions based on tkVar triggered '''
         # Using id(...) to overcome the unhashable tk Vars
-        parser = {
-            id(self.options.sound): self.taco_bell,
-            id(self.options.mouseover): self.hinter.show,
-            id(self.options.tracker): self.clueshelper.show,
-            id(self.options.allow_hits): self.check_allow_hits,
-        }
-        parser[id(opt)](opt.get())
+        # parser = {
+        #     id(self.options.sound): self.taco_bell,
+        #     id(self.options.mouseover): self.hinter.show,
+        #     id(self.options.tracker): self.clueshelper.show,
+        #     id(self.options.allow_hits): self.check_allow_hits,
+        # }
+        opt_value = self.options[opt_index].get()
+        parser = [
+            self.taco_bell,
+            self.hinter.show,
+            self.clueshelper.show,
+            self.check_allow_hits
+        ]
+        try:
+            self.field._cached_options[opt_index] = max(self.field._cached_options[opt_index], opt_value)
+        except AttributeError:
+            # _cached_options does not exist yet
+            pass
+        parser[opt_index](opt_value)
 
     @staticmethod
     def widget_exposed(evt):
@@ -115,8 +130,8 @@ class GUI(tk.Tk):
 
         # Adding difficulty menu...
         diff_menu = tk.Menu(self, tearoff=0)
-        diff_menu.add_cascade(label='Normal', menu=norm_modes)
-        diff_menu.add_cascade(label='Blackjack', menu=numb_modes)
+        diff_menu.add_cascade(label='☺ Normal', menu=norm_modes)
+        diff_menu.add_cascade(label='♠ Blackjack', menu=numb_modes)
 
         # Adding option menu...
         self.options_menu = tk.Menu(self, tearoff=0)
@@ -128,17 +143,18 @@ class GUI(tk.Tk):
         self.options_menu.add_checkbutton(label=o.sound._name, variable=o.sound)            #pylint: disable=protected-access
         self.special_menu.add_checkbutton(label=o.mouseover._name, variable=o.mouseover)    #pylint: disable=protected-access
         self.special_menu.add_checkbutton(label=o.tracker._name, variable=o.tracker)        #pylint: disable=protected-access
-        hits_menu.add_radiobutton(label='Do not allow Hits', value=0, variable=o.allow_hits)
-        hits_menu.add_radiobutton(label='Allow Hits on guesses only', value=1, variable=o.allow_hits)
-        hits_menu.add_radiobutton(label='Allow Hits on any clicks', value=2, variable=o.allow_hits)        
+        hits_menu.add_radiobutton(label='⛔ Disallow Hits', value=0, variable=o.allow_hits)
+        hits_menu.add_radiobutton(label='☕ Allow Hits on guesses only', value=1, variable=o.allow_hits)
+        hits_menu.add_radiobutton(label='♿ Allow Hits on any clicks', value=2, variable=o.allow_hits)        
         # for opt in options:
         #     self.special_menu.add_checkbutton(label=opt._name, variable=opt)    #pylint: disable=protected-access
-        self.special_menu.add_cascade(label='Hits', menu=hits_menu)
-        self.options_menu.add_cascade(label='Blackjack', menu=self.special_menu)
+        self.special_menu.add_cascade(label='☄ Hits', menu=hits_menu)
+        self.options_menu.add_cascade(label='♠ Blackjack', menu=self.special_menu)
 
         # Compile the menus together...
         menubar.add_cascade(label='Modes', menu=diff_menu)
         menubar.add_cascade(label='Options', menu=self.options_menu)
+        menubar.add_command(label='Highscores', command=lambda x=self.var_mode: self.record_keeper.show(x.get()))
         self.config(menu=menubar)
 
     def ask_for_seed(self):
@@ -190,11 +206,11 @@ class GUI(tk.Tk):
         # See if possible to seperate the special mode later....
         if mode.special:
             self.clueshelper.build(mode.amount // 13)
-            self.options_menu.entryconfig('Blackjack', state=tk.NORMAL)
-            for opt in (self.options.mouseover, self.options.tracker):
-                self.option_callback(opt)
+            self.options_menu.entryconfig('♠ Blackjack', state=tk.NORMAL)
+            for opt_index in range(1, 3):       # mouseover and tracker
+                self.option_callback(opt_index)
         else:
-            self.options_menu.entryconfig('Blackjack', state=tk.DISABLED)
+            self.options_menu.entryconfig('♠ Blackjack', state=tk.DISABLED)
             if self.hinter.exists:
                 self.hinter.show(False)
             if self.clueshelper.exists:
@@ -209,7 +225,7 @@ class GUI(tk.Tk):
         self.field = Field(self, mode, seed=seed)
         self.field.build()
         self.lbl_IEDs.config(textvariable=self.field.IED_current)
-        self.lbl_blew.config(textvariable=self.field.IED_blew)
+        self.lbl_blew.config(textvariable=self.field.IED_hit)
         self.update_status(c.STATUS_OKAY)
         self.timer.reset()
 
@@ -307,7 +323,8 @@ class Field:
             self.allow_threshold(self.parent.options.allow_hits.get())
         else:
             self.IED_threshold = 0
-        self.IED_blew = MyIntVar(value=0)
+        self.IED_hit = MyIntVar(value=0)
+        self.IED_blew = 0
         self.map_goal = self.mode.x * self.mode.y - self.IED_count
 
     def allow_threshold(self, state=0):
@@ -347,6 +364,7 @@ class Field:
                     self.map.get(IED).is_IED = 1
 
             self._IEDs_are_set = True
+            self._cached_options = [opt.get() for opt in self.parent.options]
             # Start the timer once everything is set up
             self.parent.timer.start()
 
@@ -367,11 +385,12 @@ class Field:
         else:
             self.IED_current.decrease()
         if not guess_safe:
-            self.IED_blew.increase(elem.is_IED)
-        current_blew = self.IED_blew.get()
-        if current_blew > self.IED_threshold or (self.parent.options.allow_hits.get() < 2 and not guessed):
+            self.IED_hit.increase(elem.is_IED)
+            self.IED_blew += 1
+        current_hit = self.IED_hit.get()
+        if current_hit > self.IED_threshold or (self.parent.options.allow_hits.get() < 2 and not guessed):
             self.bewm(elem)
-        elif current_blew >= 17:
+        elif current_hit >= 17:
             self.parent.update_status(c.STATUS_WOAH)
 
     def bewm(self, last):
@@ -393,11 +412,33 @@ class Field:
             congrats = 'You did it!'
             if self.IED_threshold > 0:
                 congrats += ' You took {n} guess{plural}.'.format(n=self.IED_guessed, plural='es' if self.IED_guessed > 1 else '')
-                hit = self.IED_blew.get()
+                hit = self.IED_hit.get()
                 if hit:
                     congrats += '\n... But you hit {hit} point{plural}.\nAim for 0 next time!'.format(hit=hit, plural="s" if hit > 1 else "")
                 else:
                     congrats += '\nAnd you managed to remain clear without hitting any mines.\nCongrats!'
+            if self._used_seed:
+                congrats += '\n\n(Highscore not added as seed has been used)'
+            else:
+                self.parent.record_keeper.add_record(
+                    self.mode,
+                    c.RECORD(
+                        self.parent.timer.end_time,
+                        self.seed,
+                        self.parent.timer.string.get(),
+                        *(
+                            (
+                                self.IED_guessed,
+                                self.IED_hit.get(),
+                                self.IED_blew,
+                                *self._cached_options[-3:]
+                                # self.parent.options.mouseover.get(),
+                                # self.parent.options.tracker.get(),
+                                # self.parent.options.allow_hits.get()
+                            ) if self.mode.special else (0, ) * 6
+                        )
+                    )
+                )
             showinfo('Awesome!', congrats)
 
     def destroy(self):
