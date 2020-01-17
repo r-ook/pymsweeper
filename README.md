@@ -1,6 +1,6 @@
 # `pysweeper`
 Minesweeper... on native Python (using `tkinter`)  
-^(Note: *IEDs* == *Mines*)
+(Note: *IEDs* == *Mines*)
 
 # Requirements
 Just native Python 3.5+ should do (due to type hinting)
@@ -29,10 +29,10 @@ Changes from Normal mode:
 2. Right click to cycle through flags of `0`-`10`.  
 3. Keyboard bindings: The 3x4 area of <kbd>123QWEASDZXC</kbd> are mapped accordingly to the card values, i.e.:
 
-    <kbd>1</kbd> = `1`,  <kbd>2</kbd> = `2`,  <kbd>3</kbd> = `3`
-    <kbd>Q</kbd> = `4`,  <kbd>W</kbd> = `5`,  <kbd>E</kbd> = `6`
-    <kbd>A</kbd> = `7`,  <kbd>S</kbd> = `8`,  <kbd>D</kbd> = `9`
-    <kbd>Z</kbd> = `10`, <kbd>X</kbd> = `10`, <kbd>C</kbd> = `10`
+    <kbd>1</kbd> = `1`,  <kbd>2</kbd> = `2`,  <kbd>3</kbd> = `3`  
+    <kbd>Q</kbd> = `4`,  <kbd>W</kbd> = `5`,  <kbd>E</kbd> = `6`  
+    <kbd>A</kbd> = `7`,  <kbd>S</kbd> = `8`,  <kbd>D</kbd> = `9`  
+    <kbd>Z</kbd> = `10`, <kbd>X</kbd> = `10`, <kbd>C</kbd> = `10`  
 
 Numpads and numbers are mapped as well, with <kbd>4</kbd> = `4`, <kbd>5</kbd> = `5`... and <kbd>0</kbd> = `10`.
 
