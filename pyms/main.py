@@ -131,7 +131,8 @@ class GUI(tk.Tk):
         # Adding difficulty menu...
         diff_menu = tk.Menu(self, tearoff=0)
         diff_menu.add_cascade(label='☺ Normal', menu=norm_modes)
-        diff_menu.add_cascade(label='♠ Blackjack', menu=numb_modes)
+        # diff_menu.add_cascade(label='♠ Blackjack', menu=numb_modes)
+        diff_menu.add_cascade(label='♠ ⃞ Blackjack', menu=numb_modes)
 
         # Adding option menu...
         self.options_menu = tk.Menu(self, tearoff=0)
@@ -149,7 +150,7 @@ class GUI(tk.Tk):
         # for opt in options:
         #     self.special_menu.add_checkbutton(label=opt._name, variable=opt)    #pylint: disable=protected-access
         self.special_menu.add_cascade(label='☄ Hits', menu=hits_menu)
-        self.options_menu.add_cascade(label='♠ Blackjack', menu=self.special_menu)
+        self.options_menu.add_cascade(label='♠ ⃞ Blackjack', menu=self.special_menu)
 
         # Compile the menus together...
         menubar.add_cascade(label='Modes', menu=diff_menu)
@@ -206,11 +207,11 @@ class GUI(tk.Tk):
         # See if possible to seperate the special mode later....
         if mode.special:
             self.clueshelper.build(mode.amount // 13)
-            self.options_menu.entryconfig('♠ Blackjack', state=tk.NORMAL)
+            self.options_menu.entryconfig('♠ ⃞ Blackjack', state=tk.NORMAL)
             for opt_index in range(1, 3):       # mouseover and tracker
                 self.option_callback(opt_index)
         else:
-            self.options_menu.entryconfig('♠ Blackjack', state=tk.DISABLED)
+            self.options_menu.entryconfig('♠ ⃞ Blackjack', state=tk.DISABLED)
             if self.hinter.exists:
                 self.hinter.show(False)
             if self.clueshelper.exists:

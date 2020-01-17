@@ -36,11 +36,6 @@ class RecordKeeper:
     def __init__(self, master, records_to_keep: int = 10):
         self.master = master
         self._max = records_to_keep
-        if not self.load():
-            # TODO this needs to be changed later
-            # self.records = {RecordKeeper.mode_str(mode): [self.__test_entry(val) for _ in range(self._max)] for val, mode in MODES.items()}
-            self.init_records()
-        self.var_records = [RecordTkVar() for _ in range(self._max)]
 
     def init_records(self):
         ''' Initialize all records '''
@@ -72,6 +67,9 @@ class RecordKeeper:
         self.window.wm_protocol('WM_DELETE_WINDOW', self.exit)
         self.window.focus_force()
         self.window.grab_set()
+        if not self.load():
+            return
+        self.var_records = [RecordTkVar() for _ in range(self._max)]
         self.var_mode = tk.StringVar()
         self.var_mode.trace('w', self._update_entries)
         opt_mode = tk.OptionMenu(
@@ -110,9 +108,9 @@ class RecordKeeper:
         btn_load.grid(row=2, column=1)
         btn_clear.grid(row=2, column=2)
 
-    def exit(self):
+    def exit(self, save=True):
         ''' Save before closing window '''
-        self.save()
+        if save: self.save()
         self.window.destroy()
 
     def clear_records(self):
@@ -134,10 +132,11 @@ class RecordKeeper:
     def build_records(self):    # pylint: disable=unused-argument
         ''' Build the individual records '''
         frm = self.frm_main
+        tk.Label(frm, text='♠ ⃞ Hits')  # ??? If I don't add this line, somehow the headers will mess up...?!?!
         headers = ['Rank', 'Seed', 'Time',
             '❓', '❗', '✨',
-            'Σ Hints', '⚑ Track', '☄ Hits',
-            '♥ Rating']
+            'Σ Hints', '⚑ Track', '♠ ⃞ Hits',
+            '♥ ⃞  Rating']
         stickys = [tk.W] + [tk.E] * 9
         justifys = [tk.LEFT] + [tk.RIGHT] * 9
         widths = [5, 10, 8] + [5] * 6 + [8]
@@ -159,11 +158,16 @@ class RecordKeeper:
 
     def _update_entries(self, *args):
         ''' Update the record variables with the current mode records '''
-        records = iter(self.records.get(self.var_mode.get(), []))
+        records = self.records.get(self.var_mode.get(), [])
+        records.sort(key=lambda record: record.sort_key())
+        gen_records = iter(records)
+        # records = iter(self.records.get(self.var_mode.get(), []))
         # for i, record in enumerate(records):
         #     self.var_records[i].update(record)
         for var in self.var_records:
-            var.update(next(records, None))
+            # r = next(records, None)
+            # var.update(r)
+            var.update(next(gen_records, None))
 
     def save(self, filename=None):
         if not filename:
@@ -182,10 +186,19 @@ class RecordKeeper:
         except FileNotFoundError:
             print('File not found, assuming empty records...')
         except pickle.UnpicklingError:
-            print('Pickle done goofed, need some troubleshooting...')
+            result = askyesno('Corrupted',
+                'Records appear to be corrupted and cannot be loaded\n\nClear ALL records and start fresh?')
+            if not result:
+                self.exit(save=False)
+                return
         except Exception as e:      # pylint: disable=broad-except,invalid-name
             # suppressing pylint for now, will test to see what exceptions can be expected
             print('Not sure what went wrong, why not take a look:\n{e}'.format(e=e))
+        if not _is_loaded:
+            # TODO remove testing artifacts
+            # self.records = {RecordKeeper.mode_str(mode): [self.__test_entry(val) for _ in range(self._max)] for val, mode in MODES.items()}
+            self.init_records()
+            _is_loaded = True
         return _is_loaded
 
 
@@ -234,14 +247,15 @@ class RecordEntry:
 
     def sort_key(self):
         ''' return the key for sorting '''
-        # defined by time value x rating
-        return self.data.time_val * self.rating
+        # Increase time by rating, so that there is a penalty to a lower rating.
+        key = 2 * self.data.time_val - self.data.time_val * self.rating
+        return key
 
     def __str__(self):
-        pass
+        return self.__repr__()
 
     def __repr__(self):
-        return 'Record Object(time: {time_str}, rating: {rating}, data: {data})'.format(
+        return 'RecordEntry Object(time: {time_str}, rating: {rating}, data: {data})'.format(
             time_str=self.data.time_str,
             rating=self.rating,
             data=self.data
@@ -253,13 +267,14 @@ class RecordTkVar:
         self._default = ''
         self._vars = [tk.StringVar(value=self._default) for _ in range(self.n)]
         self.formatter = {
-            'opt_mouseover': ['☐', '☑'],
-            'opt_tracker': ['☐', '☑'],
+            'opt_mouseover': ['☐', '☒'],   #'☑'],
+            'opt_tracker': ['☐', '☒'],     #'☑'],
             'opt_allow_hits': ['⛔', '☕', '♿'],
         }
     
     def update(self, record: RecordEntry = None):
         ''' Update the inner tkvars '''
+        # print(type(record), RecordEntry, record.__class__, RecordEntry.__class__)
         if isinstance(record, RecordEntry):
             fields = record.data._fields
             for i, var in enumerate(self._vars):
@@ -279,6 +294,10 @@ class RecordTkVar:
         ''' Clear the inner tkvars '''
         for var in self._vars:
             var.set(self._default)
+
+    @property
+    def values(self):
+        return [var.get() for var in self._vars]
     
     def __getitem__(self, index):
         return self._vars[index]

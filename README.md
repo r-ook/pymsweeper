@@ -64,14 +64,8 @@ The more restrictive the mode, with less gueses and less hits, the better the hi
     - **Flags Tracker**: Track how many flags have been used, and which values have been hit or guessed.
 
 # TODOs (in no particular order)
-1. Custom mode to select grid size and rate/amount  
-2. UI hints when # of flags don't match  
-3. UI tests to see how fonts/etc behave on different systems  
-4. UI enhancements, e.g. image instead of text, alignments, etc.  
-5. ... add comments... (in progress)  
-6. Balancing on number mode (more tests...)  
-7. Add help popup to explain bindings, game modes, etc.
-8. Clean up testing artifacts
+1. Add comments... 
+2. Clean up testing artifacts.  
 
 ## Cleared TODOs:
 1. Identify false flags  
@@ -87,8 +81,19 @@ The more restrictive the mode, with less gueses and less hits, the better the hi
 11. Added seeding - possibility to use seed to generate field.  
 12. Separated "hits" option to three - Disallow hits, allow hits on guesses, allow any hits.  
 13. Highscores, finally!
-14. Added more symbols for association
+14. Added more symbols for association.  
+15. Highscore handling for corrupted loads.  
 
-## Fixes:
+## Wishlist (ranked by preference)
+1. Perform more testing on ranking to see if weight assigned is fair.  
+2. UI hints when # of flags don't match.  
+3. Add help popup to explain bindings, game modes, etc.  
+4. Custom mode to select grid size and rate/amount.  
+5. Balancing on number mode (more tests...)  
+6. UI tests to see how fonts/etc behave on different systems.  
+7. UI enhancements, e.g. image instead of text, alignments, etc.  
+
+# Fixes:
 1. Fixed a potential issue if first click is flagged it would still trigger a `set_IEDs`.  
 2. Fixed an issue with `set_IEDs` being triggered more than once which interferes with seeds.  
+3. Fixed highscore ranking as the `sort_key` was sorting it in reverse.  
