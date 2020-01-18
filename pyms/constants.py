@@ -38,7 +38,7 @@ TRACKER_CONFIG = namedtuple('TRACKER_CONFIG', 'max_check over_state tracked_num 
 HINT = namedtuple('HINT', 'frame label counter')
 
 # GUI Options
-OPTIONS = namedtuple('OPTIONS', 'sound mouseover tracker allow_hits')
+OPTIONS = namedtuple('OPTIONS', 'mode sound mouseover tracker allow_hits')
 
 # Record data to support record class (follows order to be shown in highscore)
 RECORD = namedtuple('RECORD',

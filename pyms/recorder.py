@@ -3,7 +3,7 @@ import os
 import pickle
 import tkinter as tk
 
-from tkinter.messagebox import askyesno
+from tkinter.messagebox import askyesno, showerror
 
 # testing
 # TODO remove testing functions and attributes
@@ -19,10 +19,10 @@ def get_mode(mode):
 
 class RecordKeeper:
     default_filepath = os.path.dirname(os.path.abspath(__file__))
-    default_filename = os.path.join(default_filepath, '.guiness')
+    default_filename = os.path.join(default_filepath, '.data.pms')
 
     @staticmethod
-    def mode_str(mode:MODE_CONFIG):
+    def mode_str(mode: MODE_CONFIG):
         ''' Return the mode str '''
         mode = get_mode(mode)
         return '{special}: {name} ({amount} IEDs @ {x}x{y})'.format(
@@ -33,22 +33,26 @@ class RecordKeeper:
             y=mode.y
         )
 
-    def __init__(self, master, records_to_keep: int = 10):
-        self.master = master
+    def __init__(self, parent, records_to_keep: int = 10):
+        self.parent = parent
         self._max = records_to_keep
+        self.is_loaded = False
+
 
     def init_records(self):
         ''' Initialize all records '''
         # Perhaps allow partially clearing by mode
         # If allow user to trigger, will need to import dialog.
         self.records = {RecordKeeper.mode_str(mode): [] for val, mode in MODES.items()}
+        self.save()
 
     def __test_entry(self, val):
-        entry = TestRecordEntry(val,
+        entry = TestRecordEntry(
+            val,
             RECORD(
                 randrange(2**15),
                 randrange(2**31),
-                '{:02}:{:02}:{:02}'.format(*(randrange(99),)*3),
+                '{:02}:{:02}:{:02}'.format(*(randrange(99), )*3),
                 randrange(30),
                 randrange(21),
                 randrange(9),
@@ -59,18 +63,30 @@ class RecordKeeper:
         )
         return entry
 
+    # The decorator needs to be static, so need to surpress the linter warning.
+    # pylint: disable=no-self-argument
+    def check_loaded(func):
+        ''' A load checker decorator to handle file corruption issues '''
+
+        def checking(self, *args, **kwargs):
+            # First, check if file is loaded
+            if not self.is_loaded:
+                showerror('Corrupted Records', 'Unable to load/save highscore data until cleared.')
+            else:
+                func(self, *args, **kwargs)     # pylint: disable=not-callable
+        return checking
+
+    @check_loaded
     def show(self, current_mode=None):
         ''' Build the main window contents '''
         # build the opt_mode menu
-        self.window = tk.Toplevel(master=self.master, padx=5, pady=5)
+        self.window = tk.Toplevel(master=self.parent, padx=5, pady=5)
         self.window.title('Highscores')
-        self.window.wm_protocol('WM_DELETE_WINDOW', self.exit)
+        # self.window.wm_protocol('WM_DELETE_WINDOW', self.exit)
         self.window.focus_force()
         self.window.grab_set()
-        if not self.load():
-            return
         self.var_records = [RecordTkVar() for _ in range(self._max)]
-        self.var_mode = tk.StringVar()
+        self.var_mode = tk.StringVar(master=self.window)
         self.var_mode.trace('w', self._update_entries)
         opt_mode = tk.OptionMenu(
             self.window,
@@ -108,18 +124,14 @@ class RecordKeeper:
         btn_load.grid(row=2, column=1)
         btn_clear.grid(row=2, column=2)
 
-    def exit(self, save=True):
-        ''' Save before closing window '''
-        if save: self.save()
-        self.window.destroy()
-
     def clear_records(self):
         proceed = askyesno('Clearing all records...',
-            'Are you sure you want to clear all records?\nThis CANNOT be undone.')
+                           'Are you sure you want to clear all records?\nThis CANNOT be undone.')
         if proceed:
             self.init_records()
         self.var_mode.set(self.var_mode.get())  # trigger call back to refresh
 
+    @check_loaded
     def add_record(self, mode: MODE_CONFIG, data):
         ''' Add record to mode '''
         mode = get_mode(mode)
@@ -132,11 +144,11 @@ class RecordKeeper:
     def build_records(self):    # pylint: disable=unused-argument
         ''' Build the individual records '''
         frm = self.frm_main
-        tk.Label(frm, text='♠ ⃞ Hits')  # ??? If I don't add this line, somehow the headers will mess up...?!?!
+        tk.Label(frm, text='♠ ⃞')  # ??? If I don't add this line, somehow the combining unicode headers will mess up...?!?!
         headers = ['Rank', 'Seed', 'Time',
-            '❓', '❗', '✨',
-            'Σ Hints', '⚑ Track', '♠ ⃞ Hits',
-            '♥ ⃞  Rating']
+                   '❓', '❗', '✨',
+                   'Σ Hints', '⚑ Track', '♠ ⃞ Hits',
+                   '♥ ⃞  Rating']
         stickys = [tk.W] + [tk.E] * 9
         justifys = [tk.LEFT] + [tk.RIGHT] * 9
         widths = [5, 10, 8] + [5] * 6 + [8]
@@ -150,10 +162,9 @@ class RecordKeeper:
                         widget = tk.Label(frm, text=row)
                     else:
                         widget = tk.Entry(master=frm,
-                            textvariable=self.var_records[row-1][col-1],
-                            justify=justifys[col], state='readonly',
-                            relief=tk.FLAT, width=widths[col]
-                        )
+                                          textvariable=self.var_records[row-1][col-1],
+                                          justify=justifys[col], state='readonly',
+                                          relief=tk.FLAT, width=widths[col])
                     widget.grid(row=row, column=col, sticky=stickys[col])
 
     def _update_entries(self, *args):
@@ -170,36 +181,45 @@ class RecordKeeper:
             var.update(next(gen_records, None))
 
     def save(self, filename=None):
-        if not filename:
-            filename = RecordKeeper.default_filename
-        with open(filename, 'wb') as file:
-            pickle.dump(self.records, file)
+        if self.is_loaded:
+            if not filename:
+                filename = RecordKeeper.default_filename
+            try:
+                options = [opt.get() for opt in self.parent.options]
+            except AttributeError:
+                options = []
+            with open(filename, 'wb') as file:
+                pickle.dump((self.records, options), file)
 
     def load(self, filename=None):
-        _is_loaded = False
         if not filename:
             filename = RecordKeeper.default_filename
         try:
             with open(filename, 'rb') as file:
-                self.records = pickle.load(file)
-                _is_loaded = True
+                self.records, options = pickle.load(file)
+                self.is_loaded = True
+                return options
+
         except FileNotFoundError:
             print('File not found, assuming empty records...')
+    
         except pickle.UnpicklingError:
             result = askyesno('Corrupted',
-                'Records appear to be corrupted and cannot be loaded\n\nClear ALL records and start fresh?')
+                'Records appear to be corrupted and cannot be loaded.\n\nClear ALL records and start fresh?')
             if not result:
-                self.exit(save=False)
-                return
+                return None
+
         except Exception as e:      # pylint: disable=broad-except,invalid-name
             # suppressing pylint for now, will test to see what exceptions can be expected
             print('Not sure what went wrong, why not take a look:\n{e}'.format(e=e))
-        if not _is_loaded:
+            return None
+    
+        if not self.is_loaded:
             # TODO remove testing artifacts
             # self.records = {RecordKeeper.mode_str(mode): [self.__test_entry(val) for _ in range(self._max)] for val, mode in MODES.items()}
             self.init_records()
-            _is_loaded = True
-        return _is_loaded
+            self.is_loaded = True
+        return None
 
 
 class RecordEntry:
@@ -278,15 +298,21 @@ class RecordTkVar:
         if isinstance(record, RecordEntry):
             fields = record.data._fields
             for i, var in enumerate(self._vars):
-                if i < self.n - 1:
-                    if fields[i+1].startswith('opt'):
-                        # use special format
-                        var.set(self.formatter.get(fields[i+1])[record.data[i+1]])
+                if i < 2:
+                    # Seed and time
+                    var.set(record.data[i+1])
+                elif record.mode.special:
+                    if i < self.n - 1:
+                        if fields[i+1].startswith('opt'):
+                            # use special format
+                            var.set(self.formatter.get(fields[i+1])[record.data[i+1]])
+                        else:
+                            var.set(record.data[i+1])
                     else:
-                        var.set(record.data[i+1])
+                        # if the last record, show rating instead
+                        var.set('{:05.2f}%'.format(record.rating * 100))
                 else:
-                    # if the last record, show rating instead
-                    var.set('{:05.2f}%'.format(record.rating * 100)[:6])
+                    var.set('-')
         else:
             self.clear()
     

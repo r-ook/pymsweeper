@@ -3,11 +3,11 @@ Minesweeper... on native Python (using `tkinter`)
 (Note: *IEDs* == *Mines*)
 
 # Requirements
-Just native Python 3.5+ should do (due to type hinting)
+Just vanilla Python 3.5+ should do (due to type hinting)
 (Tested on Python 3.6 and 3.7)
 
 # How to use
-1. Exec run.py from root (`python run.py`), or...  
+1. Exec run.py from root (`python pysweep.pyw`), or...  
 2. Run main.py as module (`python -m pyms.main`)
 
 # Instruction
@@ -65,7 +65,7 @@ The more restrictive the mode, with less gueses and less hits, the better the hi
 
 # TODOs (in no particular order)
 1. Add comments... 
-2. Clean up testing artifacts.  
+2. Clean up testing artifacts.    
 
 ## Cleared TODOs:
 1. Identify false flags  
@@ -83,6 +83,9 @@ The more restrictive the mode, with less gueses and less hits, the better the hi
 13. Highscores, finally!
 14. Added more symbols for association.  
 15. Highscore handling for corrupted loads.  
+16. Added save handling for mode and options.  
+17. Changed saving file format.  
+18. Changed main run script to consoleless mode.    
 
 ## Wishlist (ranked by preference)
 1. Perform more testing on ranking to see if weight assigned is fair.  

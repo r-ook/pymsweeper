@@ -33,17 +33,26 @@ class GUI(tk.Tk):
         # generic image to force compound sizing on widgets
         self.empty_image = tk.PhotoImage(width=1, height=1)
 
-        # Set up tk variables and create menus and timer
+        # Create record instance and load records and options
         self.record_keeper = recorder.RecordKeeper(self)
-        self.var_mode = tk.IntVar(value=3)
+
+        opt_val = self.record_keeper.load()
+        if not opt_val:
+            # set default values if nothing to load
+            opt_val = [3, 0, 1, 1, 1]
+    
+        # Set up tk variables and create menus and timer
+        # self.options.mode = tk.IntVar(value=3)
         self.options = c.OPTIONS(
+            tk.IntVar(name='Mode'),
             *(tk.BooleanVar(name=opt_name) for opt_name in ('Warning Sound', 'Σ Mouseover Hint', '⚑ Flags Tracker')),
             tk.IntVar(name='Hits Option')
         )
-        for _bool, _opt in enumerate(self.options):
-            _opt.set(min(1, int(_bool)))
-            _opt.trace('w', lambda *_, idx=_bool: self.option_callback(idx))
+        for _idx, _opt in enumerate(self.options):
+            _opt.set(opt_val[_idx])
+            _opt.trace('w', lambda *_, idx=_idx: self.option_callback(idx))
         self.create_menus()
+        self.wm_protocol('WM_DELETE_WINDOW', self.exit)
         self.taco_bell(self.options.sound.get())
         self.timer = Timer(self)
         self.field = None
@@ -61,7 +70,7 @@ class GUI(tk.Tk):
         self.frm_helper.grid_columnconfigure(index=0, weight=1)
         self.frm_helper.bind('<Expose>', GUI.widget_exposed)
         self.hinter.build()
-        self.build_field(c.MODES.get(self.var_mode.get()))
+        self.build_field(c.MODES.get(self.options.mode.get()))
 
     def taco_bell(self, state):
         ''' Toggle bell '''
@@ -69,7 +78,7 @@ class GUI(tk.Tk):
 
     def check_allow_hits(self, state):
         ''' Toggle hits if using numbered mode '''
-        if state > 0 and self.var_mode.get() >= 3:
+        if state > 0 and self.options.mode.get() >= 3:
             self.frm_IEDs.grid_configure(columnspan=1)
             self.frm_blew.grid()
         else:
@@ -93,6 +102,7 @@ class GUI(tk.Tk):
         # }
         opt_value = self.options[opt_index].get()
         parser = [
+            self.build_field,
             self.taco_bell,
             self.hinter.show,
             self.clueshelper.show,
@@ -124,8 +134,8 @@ class GUI(tk.Tk):
             mode_menu.add_radiobutton(
                 label=mode.name,
                 value=idx,
-                variable=self.var_mode,
-                command=lambda build_mode=mode: self.build_field(build_mode)
+                variable=self.options.mode
+                # command=lambda build_mode=mode: self.build_field(build_mode)
             )
 
         # Adding difficulty menu...
@@ -155,7 +165,7 @@ class GUI(tk.Tk):
         # Compile the menus together...
         menubar.add_cascade(label='Modes', menu=diff_menu)
         menubar.add_cascade(label='Options', menu=self.options_menu)
-        menubar.add_command(label='Highscores', command=lambda x=self.var_mode: self.record_keeper.show(x.get()))
+        menubar.add_command(label='Highscores', command=lambda x=self.options.mode: self.record_keeper.show(x.get()))
         self.config(menu=menubar)
 
     def ask_for_seed(self):
@@ -166,7 +176,7 @@ class GUI(tk.Tk):
             maxvalue=maxsize,
             parent=self
         )
-        self.build_field(mode=c.MODES[self.var_mode.get()], seed=seed)
+        self.build_field(mode=self.options.mode.get(), seed=seed)
 
     def build_status_bar(self):
         ''' Build the timer, big button and counter '''
@@ -177,7 +187,7 @@ class GUI(tk.Tk):
         self.btn_main = tk.Button(
             self.frm_status,
             image=self.empty_image,
-            command=lambda: self.build_field(c.MODES.get(self.var_mode.get())),
+            command=lambda: self.build_field(c.MODES.get(self.options.mode.get())),
             # font=('tkDefaultFont', 18, 'bold'),
             width=32,
             height=32,
@@ -202,13 +212,17 @@ class GUI(tk.Tk):
         self.lbl_IEDs.pack()
         self.lbl_blew.pack()
 
-    def build_field(self, mode:c.MODE_CONFIG, seed=None):
+    def build_field(self, mode: c.MODE_CONFIG, seed=None):
         ''' Build the field frame, stop the timer and update the counters '''
+        # Quick check if int is provided, convert to MODE_CONFIG.
+        if isinstance(mode, int):
+            mode = c.MODES.get(mode)
+
         # See if possible to seperate the special mode later....
         if mode.special:
             self.clueshelper.build(mode.amount // 13)
             self.options_menu.entryconfig('♠ ⃞ Blackjack', state=tk.NORMAL)
-            for opt_index in range(1, 3):       # mouseover and tracker
+            for opt_index in range(2, 4):       # mouseover and tracker
                 self.option_callback(opt_index)
         else:
             self.options_menu.entryconfig('♠ ⃞ Blackjack', state=tk.DISABLED)
@@ -238,6 +252,11 @@ class GUI(tk.Tk):
             bg=status.bg,
             font=status.font
         )
+
+    def exit(self, save=True):
+        if save: self.record_keeper.save()
+        self.destroy()
+        self.quit()
 
     def run(self):
         self.mainloop()        
@@ -433,9 +452,6 @@ class Field:
                                 self.IED_hit.get(),
                                 self.IED_blew,
                                 *self._cached_options[-3:]
-                                # self.parent.options.mouseover.get(),
-                                # self.parent.options.tracker.get(),
-                                # self.parent.options.allow_hits.get()
                             ) if self.mode.special else (0, ) * 6
                         )
                     )
