@@ -57,6 +57,15 @@ class GUI(tk.Tk):
         self.timer = Timer(self)
         self.field = None
 
+        # Set up a blank label for default fg and bg global, to be more OS friendly
+        _lbl = tk.Label(self, text='')
+        global DEFAULT_FG
+        global DEFAULT_BG
+        DEFAULT_FG = _lbl.cget('fg')
+        DEFAULT_BG = _lbl.cget('bg')
+        _lbl.destroy()
+        del _lbl
+
         # Set up the frames
         self.frm_main = tk.Frame(self)
         self.frm_helper = tk.Frame(self)
@@ -623,7 +632,7 @@ class MapElem:
         else:
             actual = {
                 'text' : self.clue if self.clue else '',
-                'fg' : self.__class__.clue_colours.get(self.clue, 'SystemButtonText'),
+                'fg' : self.__class__.clue_colours.get(self.clue, DEFAULT_FG),
                 'font' : ('tkDefaultFont', 10, 'bold'),
             }
 
@@ -876,7 +885,7 @@ class HintBar:
             if hinter.counter.get() < 0:
                 hinter.label.config(bg='yellow')
             else:
-                hinter.label.config(bg='SystemButtonFace')
+                hinter.label.config(bg=DEFAULT_BG)
         frame = tk.LabelFrame(master=self.frame, text='{}:'.format(ctype))
         counter = tk.IntVar()
         label = tk.Label(master=frame, textvariable=counter)
@@ -935,18 +944,18 @@ class NumbHelper(tk.Frame):
     FLAG_LOCK = 'dodger blue'
     FLAG_BLEW = 'red2'
     FLAG_OVER = 'gold'
-    FLAG_OKAY = 'SystemButtonFace'
+    # FLAG_OKAY = DEFAULT
     FLAG_INACTIVE = 'LightCyan3'
-    CONFIGS = {
-        1: c.TRACKER_CONFIG(1, FLAG_OVER, 0, FLAG_ACTIVE),
-        -1: c.TRACKER_CONFIG(0, FLAG_OKAY, 1, FLAG_INACTIVE)
-    }
     def __init__(self, parent, parent_frame):
         self.parent = parent
         self.parent_frame = parent_frame
         self.nrows = None
         self.trackers = None
         self.exists = False
+        self.tracker_configs = {
+            1: c.TRACKER_CONFIG(1, NumbHelper.FLAG_OVER, 0, NumbHelper.FLAG_ACTIVE),
+            -1: c.TRACKER_CONFIG(0, DEFAULT_BG, 1, NumbHelper.FLAG_INACTIVE)
+        }
 
     def build(self, nrows):
         if self.exists:
@@ -989,7 +998,7 @@ class NumbHelper(tk.Frame):
         if self.exists:
             tracker = self.trackers.get(num)
             tracker.change(change)
-            cfg = NumbHelper.CONFIGS.get(change)
+            cfg = self.tracker_configs.get(change)
             if tracker.total == tracker.maximum + cfg.max_check:
                 self.update_batch(num, cfg.over_state)
             elif not tracker.over:
