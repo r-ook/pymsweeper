@@ -1,1 +1,1 @@
-from . import gui
+from .gui import run

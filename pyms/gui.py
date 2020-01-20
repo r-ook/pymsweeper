@@ -727,7 +727,23 @@ class MapElem:
             for adj in self.adjacents:
                 adj.clicked()
         else:
+            if self.lbl is not None:
+                self._update_lbl_from_failed_reveal()
             self.field.parent.bell()
+
+    def _update_lbl_from_failed_reveal(self, previous=None):
+        ''' Flip the states of the current label '''
+        wrong_colour = 'gold'
+        if previous is None:
+            current = self.lbl.cget('bg')
+            if not current == wrong_colour:
+                # to handle multiple clicks; if already changed, don't set a new task.
+                self.lbl.config(bg=wrong_colour)
+                self.field.parent.after(ms=250, func=lambda: self._update_lbl_from_failed_reveal(current))
+        else:
+            # return to the original colour.
+            self.lbl.config(bg=previous)
+
 
 class NumbedMapElem(MapElem):
     ''' Subclassed Numbered Map element for Blackjack mode '''

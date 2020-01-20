@@ -1,17 +1,21 @@
-# `pysweeper`
-Minesweeper... on native Python (using `tkinter`)  
-(Note: *IEDs* == *Mines*)
+# `pymsweeper`
+> Oh yeah? I'm gonna build my own Minesweeper, with Blackjack, and hookers!  
+> In fact, forget the hookers!
+
+It's Minesweeper... with a dash of blackjack... running on native Python `tkinter`  
 
 # Requirements
 Just vanilla Python 3.5+ should do (due to type hinting)
 (Tested on Python 3.6 and 3.7)
 
-# How to use
-1. Install `pyms` as a package and run (`import pyms; pyms.gui.run()`), or...  
+# How to use (3 alternatives)
+1. Install `pyms` as a package (`pip install .` on package root) and run (`import pyms; pyms.run()`), or...  
 2. Run as module (`python -m pyms`), or...  
 3. Run `pymsweeper.pyw` as a script (`python pymsweeper.pyw`)  
 
 # Instruction
+(Note: In the GUI, *IEDs* == *Mines*)  
+
 There are two main modes, each comes with three sub levels:
 1. Normal modes which mimic typical minesweeper
 2. Blackjack modes which assigns a card value (like blackjack) to each mine
@@ -33,7 +37,7 @@ Changes from Normal mode:
     <kbd>1</kbd> = `1`,  <kbd>2</kbd> = `2`,  <kbd>3</kbd> = `3`  
     <kbd>Q</kbd> = `4`,  <kbd>W</kbd> = `5`,  <kbd>E</kbd> = `6`  
     <kbd>A</kbd> = `7`,  <kbd>S</kbd> = `8`,  <kbd>D</kbd> = `9`  
-    <kbd>Z</kbd> = `10`, <kbd>X</kbd> = `10`, <kbd>C</kbd> = `10`  
+    <kbd>Z</kbd> = <kbd>X</kbd> = <kbd>C</kbd> = `10`  
 
 Numpads and numbers are mapped as well, with <kbd>4</kbd> = `4`, <kbd>5</kbd> = `5`... and <kbd>0</kbd> = `10`.
 
@@ -66,7 +70,8 @@ The more restrictive the mode, with less gueses and less hits, the better the hi
 
 # TODOs (in no particular order)
 1. Add comments... 
-2. Clean up testing artifacts.    
+2. Clean up testing artifacts.  
+3. Think of an alternative for combining unicode as it doesn't show nicely on Linux and Win7.  Windows 10 is fine.  
 
 ## Cleared TODOs:
 1. Identify false flags  
@@ -88,15 +93,16 @@ The more restrictive the mode, with less gueses and less hits, the better the hi
 17. Changed saving file format.  
 18. Changed main run script to consoleless mode.    
 19. Added basic package structure to support install and running as module.  
+20. Added UI hints (change background colour) when # of flags don't match.  
 
 ## Wishlist (ranked by preference)
 1. Perform more testing on ranking to see if weight assigned is fair.  
-2. UI hints when # of flags don't match.  
-3. Add help popup to explain bindings, game modes, etc.  
-4. Custom mode to select grid size and rate/amount.  
-5. Balancing on number mode (more tests...)  
-6. UI tests to see how fonts/etc behave on different systems.  
-7. UI enhancements, e.g. image instead of text, alignments, etc.  
+2. Add help popup to explain bindings, game modes, etc.  
+3. Custom mode to select grid size and rate/amount.  
+4. Balancing on number mode (more tests...)  
+5. UI tests to see how fonts/etc behave on different systems.  
+6. UI enhancements, e.g. image instead of text, alignments, etc.  
+7. Polish the package good enough to feel good about publishing on PyPI.  
 
 # Fixes:
 1. Fixed a potential issue if first click is flagged it would still trigger a `set_IEDs`.  
