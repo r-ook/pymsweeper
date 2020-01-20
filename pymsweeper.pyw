@@ -1,4 +1,4 @@
-from pyms.main import run
+from pyms.gui import run
 
 if __name__ == '__main__':
     run()

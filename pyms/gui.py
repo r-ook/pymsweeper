@@ -1031,6 +1031,3 @@ class NumbHelper(tk.Frame):
 def run():
     gui = GUI()
     gui.run()
-
-if __name__ == '__main__':
-    run()

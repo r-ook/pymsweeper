@@ -7,8 +7,9 @@ Just vanilla Python 3.5+ should do (due to type hinting)
 (Tested on Python 3.6 and 3.7)
 
 # How to use
-1. Exec run.py from root (`python pysweep.pyw`), or...  
-2. Run main.py as module (`python -m pyms.main`)
+1. Install `pyms` as a package and run (`import pyms; pyms.gui.run()`), or...  
+2. Run as module (`python -m pyms`), or...  
+3. Run `pymsweeper.pyw` as a script (`python pymsweeper.pyw`)  
 
 # Instruction
 There are two main modes, each comes with three sub levels:
@@ -86,6 +87,7 @@ The more restrictive the mode, with less gueses and less hits, the better the hi
 16. Added save handling for mode and options.  
 17. Changed saving file format.  
 18. Changed main run script to consoleless mode.    
+19. Added basic package structure to support install and running as module.  
 
 ## Wishlist (ranked by preference)
 1. Perform more testing on ranking to see if weight assigned is fair.  
@@ -100,3 +102,5 @@ The more restrictive the mode, with less gueses and less hits, the better the hi
 1. Fixed a potential issue if first click is flagged it would still trigger a `set_IEDs`.  
 2. Fixed an issue with `set_IEDs` being triggered more than once which interferes with seeds.  
 3. Fixed highscore ranking as the `sort_key` was sorting it in reverse.  
+4. Removed OS dependant colouring name.  
+5. Renamed to be unique on PyPI if I finally feel good enough to publish this...  
