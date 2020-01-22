@@ -1,14 +1,11 @@
 ''' Record classes '''
+
+# TODO - Check over the module to clear up any testing artifacts
 import os
 import pickle
 import tkinter as tk
 
 from tkinter.messagebox import askyesno, showerror
-
-# testing
-# TODO remove testing functions and attributes
-from random import randrange
-
 from .constants import RECORD, MODES, MODE_CONFIG
 
 def get_mode(mode):
@@ -46,23 +43,6 @@ class RecordKeeper:
         self.records = {RecordKeeper.mode_str(mode): [] for val, mode in MODES.items()}
         self.save()
 
-    def __test_entry(self, val):
-        entry = TestRecordEntry(
-            val,
-            RECORD(
-                randrange(2**15),
-                randrange(2**31),
-                '{:02}:{:02}:{:02}'.format(*(randrange(99), )*3),
-                randrange(30),
-                randrange(21),
-                randrange(9),
-                randrange(1),
-                randrange(1),
-                randrange(2)
-            )
-        )
-        return entry
-
     # The decorator needs to be static, so need to surpress the linter warning.
     # pylint: disable=no-self-argument
     def check_loaded(func):
@@ -82,7 +62,6 @@ class RecordKeeper:
         # build the opt_mode menu
         self.window = tk.Toplevel(master=self.parent, padx=5, pady=5)
         self.window.title('Highscores')
-        # self.window.wm_protocol('WM_DELETE_WINDOW', self.exit)
         self.window.focus_force()
         self.window.grab_set()
         self.var_records = [RecordTkVar() for _ in range(self._max)]
@@ -141,10 +120,10 @@ class RecordKeeper:
         records[:] = records[:self._max]
         self.save()
 
-    def build_records(self):    # pylint: disable=unused-argument
+    def build_records(self):        # pylint: disable=unused-argument
         ''' Build the individual records '''
         frm = self.frm_main
-        tk.Label(frm, text='♠ ⃞')  # ??? If I don't add this line, somehow the combining unicode headers will mess up...?!?!
+        tk.Label(frm, text='♠ ⃞')   # ??? If I don't add this line, somehow the combining unicode headers will mess up...?!?!
         headers = ['Rank', 'Seed', 'Time',
                    '❓', '❗', '✨',
                    'Σ Hints', '⚑ Track', '♠ ⃞ Hits',
@@ -213,10 +192,9 @@ class RecordKeeper:
             # suppressing pylint for now, will test to see what exceptions can be expected
             print('Not sure what went wrong, why not take a look:\n{e}'.format(e=e))
             return None
-    
+
+        # If no records are loaded for whatever reason, initiate the records unless stopped by users.
         if not self.is_loaded:
-            # TODO remove testing artifacts
-            # self.records = {RecordKeeper.mode_str(mode): [self.__test_entry(val) for _ in range(self._max)] for val, mode in MODES.items()}
             self.init_records()
             self.is_loaded = True
         return None
@@ -327,15 +305,9 @@ class RecordTkVar:
     
     def __getitem__(self, index):
         return self._vars[index]
-        
 
-class TestRecordEntry(RecordEntry):
-    @property
-    def rating(self):
-        return .75
-
-
-def test():
+def _test():
+    ''' Unit testing '''
     root = tk.Tk()
     def load():
         keeper = RecordKeeper(root)
@@ -345,5 +317,4 @@ def test():
     root.mainloop()
 
 if __name__ == '__main__':
-    test()
-
+    _test()

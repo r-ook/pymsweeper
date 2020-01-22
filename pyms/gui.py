@@ -41,9 +41,8 @@ class GUI(tk.Tk):
         if not opt_val:
             # set default values if nothing to load
             opt_val = [3, 0, 1, 1, 1]
-    
+
         # Set up tk variables and create menus and timer
-        # self.options.mode = tk.IntVar(value=3)
         self.options = c.OPTIONS(
             tk.IntVar(name='Mode'),
             *(tk.BooleanVar(name=opt_name) for opt_name in ('Warning Sound', 'Σ Mouseover Hint', '⚑ Flags Tracker')),
@@ -112,6 +111,7 @@ class GUI(tk.Tk):
             self.check_allow_hits
         ]
         try:
+            # pylint: disable=protected-access
             self.field._cached_options[opt_index] = max(self.field._cached_options[opt_index], opt_value)
         except AttributeError:
             # _cached_options does not exist yet, don't need to do anything.
@@ -138,7 +138,6 @@ class GUI(tk.Tk):
                 label=mode.name,
                 value=idx,
                 variable=self.options.mode
-                # command=lambda build_mode=mode: self.build_field(build_mode)
             )
 
         # Adding difficulty menu...
@@ -157,11 +156,11 @@ class GUI(tk.Tk):
         self.options_menu.add_checkbutton(label=o.sound._name, variable=o.sound)            #pylint: disable=protected-access
         self.special_menu.add_checkbutton(label=o.mouseover._name, variable=o.mouseover)    #pylint: disable=protected-access
         self.special_menu.add_checkbutton(label=o.tracker._name, variable=o.tracker)        #pylint: disable=protected-access
+
         hits_menu.add_radiobutton(label='⛔ Disallow Hits', value=0, variable=o.allow_hits)
         hits_menu.add_radiobutton(label='☕ Allow Hits on guesses only', value=1, variable=o.allow_hits)
-        hits_menu.add_radiobutton(label='♿ Allow Hits on any clicks', value=2, variable=o.allow_hits)        
-        # for opt in options:
-        #     self.special_menu.add_checkbutton(label=opt._name, variable=opt)    #pylint: disable=protected-access
+        hits_menu.add_radiobutton(label='♿ Allow Hits on any clicks', value=2, variable=o.allow_hits)
+
         self.special_menu.add_cascade(label='☄ Hits', menu=hits_menu)
         self.options_menu.add_cascade(label='♠ ⃞ Blackjack', menu=self.special_menu)
 
@@ -172,6 +171,7 @@ class GUI(tk.Tk):
         self.config(menu=menubar)
 
     def ask_for_seed(self):
+        ''' Dialog window to request and validate seed from user '''
         seed = askinteger(
             'Generate from seed',
             'Please enter the seed number you wish to use.\n\nNote: Highscores will NOT be recorded!',
@@ -191,7 +191,6 @@ class GUI(tk.Tk):
             self.frm_status,
             image=self.empty_image,
             command=lambda: self.build_field(c.MODES.get(self.options.mode.get())),
-            # font=('tkDefaultFont', 18, 'bold'),
             width=32,
             height=32,
             compound='c',
@@ -266,7 +265,7 @@ class GUI(tk.Tk):
 
 class Timer:
     '''
-    Timer object to manage... the timer... 
+    Timer object to manage... the timer...
     Most of the methods are rather self explanatory
     '''
     def __init__(self, parent):
@@ -1010,6 +1009,7 @@ class NumbHelper(tk.Frame):
                 lbl.grid(row=count // 4, column=num + count % 4)
 
     def change_flag(self, num, change):
+        ''' Update the flag in the helper '''
         if self.exists:
             tracker = self.trackers.get(num)
             tracker.change(change)
@@ -1021,6 +1021,7 @@ class NumbHelper(tk.Frame):
                 lbl.config(fg=cfg.flag_state)
 
     def guessed_flag(self, num, guess_safe=None):
+        ''' Update the flags related to guesses (flag as OKAY or BLEW) on the helper '''
         if self.exists:
             tracker = self.trackers.get(num)
             tracker.lock() if guess_safe else tracker.blew()
@@ -1036,6 +1037,7 @@ class NumbHelper(tk.Frame):
                         break
             
     def update_batch(self, num, colour):
+        ''' Batch update when tracker exceeds/resume from maximum '''
         for i in range(self.nrows * (4 if num >= 10 else 1)):
             self.lbls.get((num, i + 1)).config(bg=colour)
             
