@@ -27,6 +27,11 @@ Just like typical minesweeper:
 2. Right Click (<kbd>Mouse3</kbd>) (or keyboard <kbd>1</kbd>) to flag cell,  
 3. Left + Right Click(<kbd>Mouse1</kbd> + <kbd>Mouse3</kbd>) to reveal adjacent 8 cells if the correct flagged.  
 
+Option:
+1. **Use Seed**: If you want to re/play a particular field, use the seed generator under option.  
+    - Highscores shows the seed number from your best attempts, so that you may challenge yourself again.  
+    - If the current field is generated from a seed, highscore will not be recorded.
+
 ## Blackjack mode
 Changes from Normal mode:
 
@@ -62,7 +67,7 @@ For example, provided `□` represents empty cells, and `#`s represent card valu
         - If cell is not a mine, immediate game over.  
     - **Allow Hits on any clicks**: revealing any mine will count as a hit.  If mid-click was used, the above logic follows.
 
-The more restrictive the mode, with less gueses and less hits, the better the highscore.
+The more restrictive the mode (less help), with less guesses and less hits, the better the highscore.
 
 7. Includes two helpful hint system (which can be disabled for higher scores):
     - **Mouseover Hints**: Calculate the flagged values on the hovered cell to show remaining flags required to match total.  

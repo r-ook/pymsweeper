@@ -1,13 +1,14 @@
-''' Main script that can also run as a module with -m '''
-from . import constants as c
-from . import recorder
-from sys import maxsize
-from time import time
-from random import Random, randrange
+''' Main core of GUI '''
+import tkinter as tk
 from tkinter.messagebox import showinfo
 from tkinter.simpledialog import askinteger
 
-import tkinter as tk
+from sys import maxsize
+from time import time
+from random import Random, randrange
+from . import constants as c
+from . import recorder
+
 
 class MyIntVar(tk.IntVar):
     ''' Subclassing the IntVar to add convenience methods '''
@@ -102,13 +103,6 @@ class GUI(tk.Tk):
 
     def option_callback(self, opt_index: int):
         ''' Callback option to call functions based on tkVar triggered '''
-        # Using id(...) to overcome the unhashable tk Vars
-        # parser = {
-        #     id(self.options.sound): self.taco_bell,
-        #     id(self.options.mouseover): self.hinter.show,
-        #     id(self.options.tracker): self.clueshelper.show,
-        #     id(self.options.allow_hits): self.check_allow_hits,
-        # }
         opt_value = self.options[opt_index].get()
         parser = [
             self.build_field,
@@ -120,7 +114,7 @@ class GUI(tk.Tk):
         try:
             self.field._cached_options[opt_index] = max(self.field._cached_options[opt_index], opt_value)
         except AttributeError:
-            # _cached_options does not exist yet
+            # _cached_options does not exist yet, don't need to do anything.
             pass
         parser[opt_index](opt_value)
 
