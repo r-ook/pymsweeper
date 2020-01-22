@@ -61,11 +61,16 @@ For example, provided `□` represents empty cells, and `#`s represent card valu
 
 6. Allow *Hits* (revealing of a valued mine) of up to `21` total points, depending on the *Hits* option selected:  
     - **Disallow hits**: revealing *any* mine will be game over, much like normal mode.  
-    - **Allow Hits on guesses only**: use mid-click (<kbd>Mouse2</kbd>) on unopened cells to guess if the flagged value is correct.  
-        - If flag value matches, the guess is safe (marked blue)  
-        - If flag value doesn't match, but is a mine, it counts as a hit (follows any hits condition, see next section)  
-        - If cell is not a mine, immediate game over.  
-    - **Allow Hits on any clicks**: revealing any mine will count as a hit.  If mid-click was used, the above logic follows.
+    - **Allow Hits on guesses only**: use mid-click (<kbd>Mouse2</kbd>) on unopened cells to guess if the unflagged/flagged value is correct.  
+        - If the cell is flagged and the value matches, the guess is safe (marked green)  
+        - If the cell is flagged flag value doesn't match:  
+            - If it is a mine, it counts as a hit (follows any hits condition, see next section).   
+            - If it is not a mine, immediate game over.  
+        - If the cell is unflagged and it is not a mine, the guess is safe (marked green).  
+        - If the cell is unflagged and it is a mine, it counts as ahit (follows any hits condition, see next section).   
+    - **Allow Hits on any clicks**: revealing any mine will count as a hit.  If mid-click was used, the above logic follows.  
+        - When the total hits accrue up to `17` points, the smiley face will frown as a warning.  
+        - When the total hits exceed `21` points, the game is immediately over.  
 
 The more restrictive the mode (less help), with less guesses and less hits, the better the highscore.
 
@@ -99,6 +104,8 @@ The more restrictive the mode (less help), with less guesses and less hits, the 
 18. Changed main run script to consoleless mode.    
 19. Added basic package structure to support install and running as module.  
 20. Added UI hints (change background colour) when # of flags don't match.  
+21. Shuffled things around to allow for unflagged guesses.  If the cell is not flagged and user took a guess, they'll just take the hit.  
+22. Added differentiation of colours between guesses and cleared cells on endgame.  
 
 ## Wishlist (ranked by preference)
 1. Perform more testing on ranking to see if weight assigned is fair.  

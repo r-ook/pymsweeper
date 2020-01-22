@@ -400,18 +400,18 @@ class Field:
                 if elem.flagged:
                     elem.check_false_flag()
 
-    def check_threshold(self, elem, guessed=False, guess_safe=None):
+    def check_threshold(self, elem, guess_safe=None):
         ''' Check if threshold is exceeded '''
-        # Added guessed argument to support mid-click guesses
-        if guessed:
-            self.IED_guessed += 1
-        else:
-            self.IED_current.decrease()
+        # # Added guessed argument to support mid-click guesses
+        # if guessed:
+        #     self.IED_guessed += 1
+        # else:
+        #     self.IED_current.decrease()
         if not guess_safe:
             self.IED_hit.increase(elem.is_IED)
             self.IED_blew += 1
         current_hit = self.IED_hit.get()
-        if current_hit > self.IED_threshold or (self.parent.options.allow_hits.get() < 2 and not guessed):
+        if current_hit > self.IED_threshold or (self.parent.options.allow_hits.get() < 2 and guess_safe is None):
             self.bewm(elem)
         elif current_hit >= 17:
             self.parent.update_status(c.STATUS_WOAH)
@@ -424,9 +424,11 @@ class Field:
         self.is_over = True
         self.expose_IEDs(clear=False, show_false_flags=True)
 
-    def check_clear(self):
+    def check_clear(self, guessed=False):
         ''' Check for when the field is cleared '''
         self.map_cleared += 1
+        if guessed:
+            self.IED_guessed += 1
         if self.map_cleared >= self.map_goal:
             self.parent.timer.stop()
             self.is_over = True
@@ -650,10 +652,9 @@ class MapElem:
                 for adj in self.adjacents:
                     adj.clicked()
 
-            # Unless it's confirmed guess_safe (flag = IED), do the checks.
-            # if not guess_safe:
+            # Do the check regardless if guessed, safe or not.
             if self.is_IED:
-                self.field.check_threshold(self, guessed=guess_safe is not None, guess_safe=guess_safe)
+                self.field.check_threshold(self, guess_safe=guess_safe)
             elif guess_safe is False: # and is not IED
                 self.field.bewm(self)
             else:
@@ -670,11 +671,16 @@ class MapElem:
             self.revealed = True
             if self.flagged:
                 self.flagged = 0
+            elif self.is_IED and over_and_clear is None:   # and not flagged
+                self.field.IED_current.decrease()
             self.clue = self.adjacent_IEDs()
             self.create_actual()
             self.box.pack_forget()
+
             # Check if it's guess_safe and in a winning condition to highlight mines
-            if guess_safe or over_and_clear:
+            if guess_safe:  # or over_and_clear:
+                self.lbl.config(bg='pale green')
+            if over_and_clear:
                 self.lbl.config(bg='lightblue')
 
             # If the game is over, skip updating the hinter.
@@ -697,8 +703,9 @@ class MapElem:
                     self.left_release()
                 # Mid click for special mode
                 elif evt.num == 2:
-                    if self.flagged:
-                        self.clicked(guess_safe=self.flagged == self.is_IED)
+                    # if self.flagged:
+                    self.field.IED_guessed += 1
+                    self.clicked(guess_safe=self.flagged == self.is_IED)
                 elif evt.num == 3 and not ignore:
                     self.right_release()
 
@@ -837,7 +844,6 @@ class Surprise(tk.Button):
     
     def set_other_bindings(self):
         self.bind('1', lambda evt: self.flag(None))
-        # self.bind('<Button-3>', parent.omni_click)
 
 
 class NumbedSurprise(Surprise):
@@ -954,7 +960,6 @@ class NumbHelper(tk.Frame):
     FLAG_LOCK = 'dodger blue'
     FLAG_BLEW = 'red2'
     FLAG_OVER = 'gold'
-    # FLAG_OKAY = DEFAULT
     FLAG_INACTIVE = 'LightCyan3'
     def __init__(self, parent, parent_frame):
         self.parent = parent
