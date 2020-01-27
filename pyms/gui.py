@@ -55,7 +55,8 @@ class GUI(tk.Tk):
         self.wm_protocol('WM_DELETE_WINDOW', self.exit)
         self.taco_bell(self.options.sound.get())
         self.timer = Timer(self)
-        self.field = None
+        # self.field = None
+        self.field = Field(self)
 
         # Set up a blank label for default fg and bg global, to be more OS friendly
         _lbl = tk.Label(self, text='')
@@ -67,7 +68,7 @@ class GUI(tk.Tk):
         del _lbl
 
         # Set up the frames
-        self.frm_main = tk.Frame(self)
+        self.frm_main = tk.Frame(self, padx=2, pady=2)
         self.frm_helper = tk.Frame(self)
         self.hinter = HintBar(self, self.frm_helper)
         self.clueshelper = NumbHelper(self, self.frm_helper)
@@ -152,7 +153,7 @@ class GUI(tk.Tk):
         hits_menu = tk.Menu(self.special_menu, tearoff=0)
 
         o = self.options
-        self.options_menu.add_command(label='Use seed...', command=self.ask_for_seed)
+        self.options_menu.add_command(label='Retry/Use seed...', command=self.ask_for_seed)
         self.options_menu.add_checkbutton(label=o.sound._name, variable=o.sound)            #pylint: disable=protected-access
         self.special_menu.add_checkbutton(label=o.mouseover._name, variable=o.mouseover)    #pylint: disable=protected-access
         self.special_menu.add_checkbutton(label=o.tracker._name, variable=o.tracker)        #pylint: disable=protected-access
@@ -172,14 +173,30 @@ class GUI(tk.Tk):
 
     def ask_for_seed(self):
         ''' Dialog window to request and validate seed from user '''
+        cur_seed = self.field.seed
+        prev_seed = self.field.previous_seed
+        default_seed = cur_seed if cur_seed else prev_seed if prev_seed else ''
         seed = askinteger(
             'Generate from seed',
-            'Please enter the seed number you wish to use.\n\nNote: Highscores will NOT be recorded!',
+            '\n'.join((
+                'Please enter the seed number you wish to use.\n',
+                'Previous seed: {prev}{default}'.format(
+                    prev=str(prev_seed),
+                    default=' <-' if default_seed == prev_seed else ''
+                    ),
+                'Current seed: {cur}{default}'.format(
+                    cur=str(cur_seed),
+                    default=' <-' if default_seed == cur_seed else ''
+                    ),
+                '\nNote: Highscores will NOT be recorded!'
+            )),
             minvalue=0,
             maxvalue=maxsize,
-            parent=self
+            parent=self,
+            initialvalue=default_seed
         )
-        self.build_field(mode=self.options.mode.get(), seed=seed)
+        if seed:
+            self.build_field(mode=self.options.mode.get(), seed=seed)
 
     def build_status_bar(self):
         ''' Build the timer, big button and counter '''
@@ -237,10 +254,10 @@ class GUI(tk.Tk):
         self.check_allow_hits(self.options.allow_hits.get())
 
         # Actually starting the field
-        if not self.field is None:
-            self.field.destroy()
-        self.field = Field(self, mode, seed=seed)
-        self.field.build()
+        # if not self.field is None:
+        #     self.field.destroy()
+        # self.field = Field(self, mode, seed=seed)
+        self.field.build(mode=mode, seed=seed)
         self.lbl_IEDs.config(textvariable=self.field.IED_current)
         self.lbl_blew.config(textvariable=self.field.IED_hit)
         self.update_status(c.STATUS_OKAY)
@@ -261,7 +278,7 @@ class GUI(tk.Tk):
         self.quit()
 
     def run(self):
-        self.mainloop()        
+        self.mainloop()
 
 class Timer:
     '''
@@ -317,13 +334,45 @@ class Field:
     # Suppress pylint warning for now
     # Want to see if some attributes can be handled as classes
 
-    def __init__(self, parent: GUI, mode: c.MODE_CONFIG = c.MODES.get(0), seed: int = None):
+    def __init__(self, parent: GUI):
         self.parent = parent
+        self.frame = None
+        self.__used_seed = False
+        self.seed = None
+        self.previous_seed = None
+    
+    @property
+    def used_seed(self):
+        return self.__used_seed
+
+    @used_seed.setter
+    def used_seed(self, b_val):
+        self.__used_seed = b_val
+        if b_val:
+            self.parent.frm_main.config(bg='light sky blue')
+            # self.parent.frm_timer.config(bg='light sky blue')
+            # self.parent.frm_IEDs.config(bg='light sky blue')
+            # self.parent.frm_blew.config(bg='light sky blue')
+        else:
+            self.parent.frm_main.config(bg=DEFAULT_BG)
+            # self.parent.frm_timer.config(bg=DEFAULT_BG)
+            # self.parent.frm_IEDs.config(bg=DEFAULT_BG)
+            # self.parent.frm_blew.config(bg=DEFAULT_BG)
+
+    def allow_threshold(self, state=0):
+        ''' Enable or disable hits threshold '''
+        self.IED_threshold = 21 if state > 0 else 0
+
+    def build(self, mode: c.MODE_CONFIG = c.MODES.get(0), seed: int = None):
+        ''' Build the frame and map elements '''
+        if not self.frame is None:
+            self.frame.destroy()
+            self.previous_seed = self.seed
         self.mode = mode
         self.frame = tk.Frame(master=self.parent.frm_main)
         self.is_over = False
         self.seed = seed
-        self._used_seed = seed is not None
+        self.used_seed = seed is not None
 
         # The original intent was to use rate to determine amount,
         # left here as a legacy, might be revisited
@@ -348,13 +397,6 @@ class Field:
         self.IED_hit = MyIntVar(value=0)
         self.IED_blew = 0
         self.map_goal = self.mode.x * self.mode.y - self.IED_count
-
-    def allow_threshold(self, state=0):
-        ''' Enable or disable hits threshold '''
-        self.IED_threshold = 21 if state > 0 else 0
-
-    def build(self):
-        ''' Build the frame and map elements '''
         for elem in self.map.values():
             elem.build_surprise_box()
         self.frame.pack_propagate(False)
@@ -371,7 +413,9 @@ class Field:
             # Randomize coord and add set if it's not the current location
             while len(self.IEDs) < self.IED_count:
                 coord = (rnd.randrange(self.mode.x), rnd.randrange(self.mode.y))
-                if coord != current_coord or self._used_seed:
+
+                # if seed was used, ignore validation of current coord 
+                if coord != current_coord or self.used_seed:
                     self.IEDs.add(coord)
 
             # Use card values if Blackjack mode, else IEDs are assigned default value of 1 (True)
@@ -433,15 +477,15 @@ class Field:
             self.is_over = True
             self.parent.update_status(c.STATUS_YEAH)
             self.expose_IEDs(clear=True)
-            congrats = 'You did it!'
+            congrats = 'You did it!\nTotal Time: {time}'.format(self.parent.timer.string.get())
             if self.IED_threshold > 0:
-                congrats += ' You took {n} guess{plural}.'.format(n=self.IED_guessed, plural='es' if self.IED_guessed > 1 else '')
+                congrats += '\n\nYou took {n} guess{plural}.'.format(n=self.IED_guessed, plural='es' if self.IED_guessed > 1 else '')
                 hit = self.IED_hit.get()
                 if hit:
-                    congrats += '\n... But you hit {hit} point{plural}.\nAim for 0 next time!'.format(hit=hit, plural="s" if hit > 1 else "")
+                    congrats += '\n... And you hit {hit} point{plural}.\nAim for 0 next time!'.format(hit=hit, plural="s" if hit > 1 else "")
                 else:
                     congrats += '\nAnd you managed to remain clear without hitting any mines.\nCongrats!'
-            if self._used_seed:
+            if self.used_seed:
                 congrats += '\n\n(Highscore not added as seed has been used)'
             else:
                 self.parent.record_keeper.add_record(
@@ -461,9 +505,6 @@ class Field:
                     )
                 )
             showinfo('Awesome!', congrats)
-
-    def destroy(self):
-        self.frame.destroy()
 
 def gradient_colour(main:int, increm=0x080808, n=8, darken=True, as_string=False) -> list:
     '''

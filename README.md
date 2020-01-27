@@ -106,6 +106,8 @@ The more restrictive the mode (less help), with less guesses and less hits, the 
 20. Added UI hints (change background colour) when # of flags don't match.  
 21. Shuffled things around to allow for unflagged guesses.  If the cell is not flagged and user took a guess, they'll just take the hit.  
 22. Added differentiation of colours between guesses and cleared cells on endgame.  
+23. Modified "`Use Seed...`" option to also display current and previous seed for retries.  
+24. If highscore is disabled due to seeding, the main field will be surrounded with a blue hue.  
 
 ## Wishlist (ranked by preference)
 1. Perform more testing on ranking to see if weight assigned is fair.  
@@ -122,3 +124,4 @@ The more restrictive the mode (less help), with less guesses and less hits, the 
 3. Fixed highscore ranking as the `sort_key` was sorting it in reverse.  
 4. Removed OS dependant colouring name.  
 5. Renamed to be unique on PyPI if I finally feel good enough to publish this...  
+6. Changed the structure to re-use the same `Field` object instead of creating a new instance each time.  
