@@ -477,7 +477,7 @@ class Field:
             self.is_over = True
             self.parent.update_status(c.STATUS_YEAH)
             self.expose_IEDs(clear=True)
-            congrats = 'You did it!\nTotal Time: {time}'.format(self.parent.timer.string.get())
+            congrats = 'You did it!\nTotal Time: {time}'.format(time=self.parent.timer.string.get())
             if self.IED_threshold > 0:
                 congrats += '\n\nYou took {n} guess{plural}.'.format(n=self.IED_guessed, plural='es' if self.IED_guessed > 1 else '')
                 hit = self.IED_hit.get()
